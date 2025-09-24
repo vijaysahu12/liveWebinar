@@ -1,0 +1,6 @@
+@LiveWebinar_HostAddress = http://localhost:5021
+
+GET {{LiveWebinar_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

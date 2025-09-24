@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "dgSpecHash": "R5dzohgc39E=",
+  "success": true,
+  "projectFilePath": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/Webinar Project/backend/LiveWebinar/LiveWebinar.csproj",
+  "expectedPackageFiles": [
+    "/Users/marketbhavishya/.nuget/packages/microsoft.aspnetcore.openapi/9.0.9/microsoft.aspnetcore.openapi.9.0.9.nupkg.sha512",
+    "/Users/marketbhavishya/.nuget/packages/microsoft.openapi/1.6.17/microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1900",
+      "level": "Warning",
+      "message": "Error occurred while getting package vulnerability data: Access to the path '/Users/marketbhavishya/.local/share' is denied.",
+      "projectPath": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/Webinar Project/backend/LiveWebinar/LiveWebinar.csproj",
+      "warningLevel": 1,
+      "filePath": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/Webinar Project/backend/LiveWebinar/LiveWebinar.csproj",
+      "targetGraphs": []
+    }
+  ]
+}
