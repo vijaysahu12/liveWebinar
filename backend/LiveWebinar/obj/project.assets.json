@@ -80,11 +80,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/Webinar Project/backend/LiveWebinar/LiveWebinar.csproj",
+      "projectUniqueName": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/liveWebinar/backend/LiveWebinar/LiveWebinar.csproj",
       "projectName": "LiveWebinar",
-      "projectPath": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/Webinar Project/backend/LiveWebinar/LiveWebinar.csproj",
+      "projectPath": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/liveWebinar/backend/LiveWebinar/LiveWebinar.csproj",
       "packagesPath": "/Users/marketbhavishya/.nuget/packages/",
-      "outputPath": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/Webinar Project/backend/LiveWebinar/obj/",
+      "outputPath": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/liveWebinar/backend/LiveWebinar/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/marketbhavishya/.nuget/NuGet/NuGet.Config"

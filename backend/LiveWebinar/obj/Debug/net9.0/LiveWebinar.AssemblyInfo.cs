@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LiveWebinar")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+62d266167d93aa83540abf70b5002b78b248c6b9")]
 [assembly: System.Reflection.AssemblyProductAttribute("LiveWebinar")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LiveWebinar")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
