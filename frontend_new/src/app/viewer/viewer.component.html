@@ -1,0 +1,119 @@
+ <div class="main-container">
+      <div class="wrap">
+        <div class="player" id="player">
+          <!-- Event header -->
+          <div class="event-header">
+            <div style="flex:1">
+              <div class="event-title" id="eventTitle">Algo Trading Setup for Crypto</div>
+              <div class="event-meta" style="margin-top:6px">
+                <div class="pill" id="eventWhen">Event: Sep 30, 2025 • 07:00 PM IST</div>
+                <div class="pill" id="eventDuration">Duration: 90 mins</div>
+                <div class="pill" id="eventType">Live</div>
+              </div>
+            </div>
+
+            <!-- visible to all: Live status badge + viewer count -->
+            <div class="header-right">
+              <div class="badge" id="viewerCount">Viewers: {{ viewerCount() }}</div>
+              <div class="small stream-status">{{ streamStatus() }}</div>
+            </div>
+          </div>
+
+          <!-- overlay area for polls/messages/qr -->
+          <div class="overlay" id="overlayContainer" aria-live="polite"></div>
+
+          <!-- video player area -->
+          <div class="video-area" id="videoArea">
+            <iframe
+              id="streamEmbed"
+              src="https://www.youtube.com/embed/2kT42dG4xpg?si=pp0ho09c9_h4hnGj"
+              title="YouTube video player"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerpolicy="strict-origin-when-cross-origin"
+              allowfullscreen>
+            </iframe>
+          </div>
+
+          <!-- controls -->
+          <div class="controls">
+            <button class="control-btn" (click)="incrementViewerCount()">👍 Like</button>
+            <button class="control-btn" (click)="resetViewerCount()">👎 Dislike</button>
+            @if (!toggleChat()) {
+            <button class="control-btn toggle-chat-btn" (click)="toggleChat()">Show Chat</button>
+            }
+
+            <div style="flex:1"></div>
+            <div class="small">Live • <span id="liveTimer">{{ liveTimer() | date:'mm:ss' }}</span></div>
+          </div>
+        </div>
+
+        @if (showChat()) {
+          <div class="chat">
+            <button class="control-btn close-chat-btn" (click)="toggleChat()">✖</button>
+            <iframe id="chatIframe" src="about:blank" title="Live Chat"></iframe>
+          </div>
+        }
+      </div>
+
+     
+      <!-- Host controls (minimize/maximize) with participants visible only to host -->
+      <div [class.host-panel]="true" [class.minimized]="hostPanelMinimized()">
+        <div class="host-header">
+          <div style="display:flex;flex-direction:column">
+            <strong>Host Controls</strong>
+            <span class="small" style="color:var(--muted);margin-top:4px;display:none">Participants: {{ participants() }}</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button (click)="toggleHostPanel()" class="control-btn" style="padding:4px 8px">{{ hostPanelMinimized() ? '➕' : '➖' }}</button>
+          </div>
+        </div>
+
+        @if (!hostPanelMinimized()) {
+          <div class="host-body">
+            <label>Push Quick Message</label>
+            <div class="form-row">
+              <input id="quickMsg" placeholder="Type message to show to all viewers" />
+              <button class="control-btn">Push</button>
+            </div>
+
+            <label>Create Poll</label>
+            <input id="pollQ" placeholder="Poll question" />
+            <div class="form-row">
+              <input id="opt1" placeholder="Option 1" />
+              <input id="opt2" placeholder="Option 2" />
+            </div>
+            <div class="form-row">
+              <input id="opt3" placeholder="Option 3 (optional)" />
+              <input id="opt4" placeholder="Option 4 (optional)" />
+            </div>
+            <div class="form-row">
+              <select id="pollDur">
+                <option value="15">15s</option>
+                <option value="30">30s</option>
+                <option value="60">60s</option>
+                <option value="0">No timeout</option>
+              </select>
+              <button class="control-btn">Create Poll</button>
+            </div>
+
+            <label>Share Material (link)</label>
+            <div class="form-row">
+              <input id="materialLink" placeholder="Presigned URL or link" />
+              <button class="control-btn">Share</button>
+            </div>
+
+            <label>Share UPI QR</label>
+            <div class="form-row">
+              <input id="upiId" placeholder="yourupi@bank" />
+              <button class="control-btn">Show QR</button>
+            </div>
+
+            <hr class="separator">
+            <div class="small">Host broadcast status: <span>{{ hostBroadcastStatus() }}</span></div>
+          </div>
+        }
+      </div>
+    </div>
+
+ 
