@@ -2,7 +2,7 @@ namespace liveWebinar.Models;
 
 public class Participant
 {
-    public int Id { get; set; }
+    public long Id { get; set; }
     public int WebinarId { get; set; }
     public long UserId { get; set; }
     public string ConnectionId { get; set; } = string.Empty;
