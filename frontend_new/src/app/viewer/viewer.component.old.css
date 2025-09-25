@@ -1,0 +1,261 @@
+
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :host {
+      --primary: #5A67D8;
+      --primary-dark: #4C51BF;
+      --secondary: #3B82F6;
+      --text-color: #E2E8F0;
+      --bg-color: #1A202C;
+      --card-bg: #2D3748;
+      --muted: #A0AEC0;
+      font-family: 'Inter', sans-serif;
+      color: var(--text-color);
+      background-color: var(--bg-color);
+      display: block;
+      padding: 24px;
+    }
+
+    .main-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      padding: 20px;
+      background-color: var(--bg-color);
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .wrap {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 1400px;
+      gap: 24px;
+    }
+    
+    .player {
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .event-header {
+      display: flex;
+      align-items: flex-start;
+      padding: 16px;
+      gap: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    
+    .event-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    
+    .event-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .pill {
+      background-color: var(--primary);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    
+    .badge {
+      background-color: var(--secondary);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    
+    .small {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    
+    .stream-status {
+      color: #38a169;
+    }
+    
+    .connection-status {
+      font-weight: 500;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .video-area {
+      position: relative;
+      padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+      height: 0;
+      overflow: hidden;
+    }
+    
+    .video-area iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+    }
+    
+    .controls {
+      display: flex;
+      padding: 16px;
+      align-items: center;
+      gap: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .control-btn {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: background-color 0.2s;
+    }
+    
+    .control-btn:hover {
+      background-color: var(--primary-dark);
+    }
+    
+    .toggle-chat-btn {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 10;
+    }
+    
+    .chat {
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      overflow: hidden;
+      width: 100%;
+      max-width: 400px;
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    
+    .chat iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    
+    .close-chat-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 2;
+    }
+    
+    .host-panel {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      width: 300px;
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+      overflow: hidden;
+    }
+    
+    .host-panel.minimized {
+      width: fit-content;
+      height: fit-content;
+    }
+
+    .host-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .host-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .host-body label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .form-row input, .form-row select {
+      flex: 1;
+      padding: 8px;
+      background-color: #384050;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: var(--text-color);
+    }
+
+    .form-row input:focus, .form-row select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(90, 103, 216, 0.5);
+    }
+    
+    .separator {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      margin: 10px 0;
+    }
+
+    @media (min-width: 1024px) {
+      .wrap {
+        flex-direction: row;
+        align-items: flex-start;
+      }
+      .player {
+        flex: 1;
+      }
+      .chat {
+        width: 400px;
+        min-height: auto;
+      }
+      .toggle-chat-btn {
+        display: none;
+      }
+    }
+  

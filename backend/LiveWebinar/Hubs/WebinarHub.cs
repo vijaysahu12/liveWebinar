@@ -286,4 +286,36 @@ public class WebinarHub : Hub
     {
         await Clients.Caller.SendAsync("Pong", DateTime.UtcNow);
     }
+
+    // Method to send chat messages to all participants in a webinar
+    public async Task SendChatMessage(string webinarId, object chatMessage)
+    {
+        if (long.TryParse(webinarId, out long webinarIdLong))
+        {
+            // Verify the sender is a participant in this webinar
+            var senderConnectionId = Context.ConnectionId;
+            var participant = await _db.Participants
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webinarIdLong && p.IsActive);
+            
+            if (participant != null)
+            {
+                Console.WriteLine($"💬 Chat message from {participant.User.Name} in webinar {webinarId}: {chatMessage}");
+                
+                // Broadcast the message to all participants in the webinar
+                await Clients.Group(webinarId).SendAsync("ChatMessage", chatMessage);
+                
+                Console.WriteLine($"💬 Chat message broadcasted to webinar {webinarId} group");
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ Unauthorized chat message attempt from connection {senderConnectionId}");
+                await Clients.Caller.SendAsync("Error", "You are not authorized to send messages in this webinar");
+            }
+        }
+        else
+        {
+            await Clients.Caller.SendAsync("Error", "Invalid webinar ID");
+        }
+    }
 }

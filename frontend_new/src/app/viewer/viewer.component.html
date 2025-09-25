@@ -1,17 +1,40 @@
 <div class="main-container">
-    <div class="controls">
-      <button class="control-btn" (click)="refreshViewerCount()">🔄 Refresh Count</button>
-      <button class="control-btn" (click)="incrementViewerCount()">👍 Like</button>
-      <button class="control-btn" (click)="clearUserId()">🗑️ Clear User ID</button>
-      <button class="control-btn" (click)="testOfflineMode()">📱 Test Offline</button>
-      @if (!showChat()) {
-      <button class="control-btn toggle-chat-btn" (click)="toggleChat()">Show Chat</button>
-      }
-
-      <div style="flex:1"></div>
+  <!-- Top Controls Bar -->
+  <div class="top-controls">
+    <button class="control-btn" (click)="refreshViewerCount()">🔄 Refresh Count</button>
+    <button class="control-btn" (click)="incrementViewerCount()">👍 Like</button>
+    <button class="control-btn" (click)="clearUserId()">🗑️ Clear User ID</button>
+    <button class="control-btn" (click)="testOfflineMode()">📱 Test Offline</button>
+    
+    <div style="flex:1"></div>
+    
+    <!-- Status indicators -->
+    <div class="status-group">
+      <div class="badge">
+        Viewers: {{ viewerCount() }} | Total: {{ participants() }}
+      </div>
+      <div class="small stream-status">{{ streamStatus() }}</div>
+      <div class="small connection-status"
+        [style.color]="connectionStatus() === 'Connected' ? 'green' : connectionStatus() === 'Offline' ? 'orange' : connectionStatus() === 'Reconnecting...' ? 'blue' : 'gray'">
+        @if (connectionStatus() === 'Connected') {
+          🟢 Live
+        } @else if (connectionStatus() === 'Offline') {
+          🟠 Offline Mode
+        } @else if (connectionStatus() === 'Reconnecting...') {
+          🔵 Connecting...
+        } @else {
+          ⚪ {{ connectionStatus() }}
+        }
+      </div>
       <div class="small">Live • <span id="liveTimer">{{ liveTimer() | date:'mm:ss' }}</span></div>
-    </div> 
-    <div class="player" id="player">
+    </div>
+  </div>
+
+  <!-- Main Content Area: 70% Video + 30% Chat -->
+  <div class="content-area">
+    
+    <!-- Left Side: Live Streaming (70%) -->
+    <div class="video-section">
       <!-- Event header -->
       <div class="event-header">
         <div style="flex:1">
@@ -20,26 +43,6 @@
             <div class="pill" id="eventWhen">Event: Sep 30, 2025 • 07:00 PM IST</div>
             <div class="pill" id="eventDuration">Duration: 90 mins</div>
             <div class="pill" id="eventType">Live</div>
-          </div>
-        </div>
-
-        <!-- visible to all: Live status badge + viewer count -->
-        <div class="header-right">
-          <div class="badge" id="viewerCount">
-            Viewers: {{ viewerCount() }} | Total: {{ participants() }}
-          </div>
-          <div class="small stream-status">{{ streamStatus() }}</div>
-          <div class="small connection-status"
-            [style.color]="connectionStatus() === 'Connected' ? 'green' : connectionStatus() === 'Offline' ? 'orange' : connectionStatus() === 'Reconnecting...' ? 'blue' : 'gray'">
-            @if (connectionStatus() === 'Connected') {
-              🟢 Live
-            } @else if (connectionStatus() === 'Offline') {
-              🟠 Offline Mode
-            } @else if (connectionStatus() === 'Reconnecting...') {
-              🔵 Connecting...
-            } @else {
-              ⚪ {{ connectionStatus() }}
-            }
           </div>
         </div>
       </div>
@@ -55,85 +58,84 @@
           referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>
         </iframe>
       </div>
+    </div>
 
-      <!-- controls -->
-      <div class="controls">
-        <button class="control-btn" (click)="refreshViewerCount()">� Refresh Count</button>
-        <button class="control-btn" (click)="incrementViewerCount()">� Like</button>
-        @if (!showChat()) {
-        <button class="control-btn toggle-chat-btn" (click)="toggleChat()">Show Chat</button>
+    <!-- Right Side: Chat (30%) -->
+    <div class="chat-section">
+      <div class="chat-header">
+        <h3>Live Chat</h3>
+        <div class="chat-stats">{{ chatMessages().length }} messages</div>
+      </div>
+      
+      <div class="chat-messages" #chatContainer>
+        @for (message of chatMessages(); track message.id) {
+          <div class="chat-message" [class.own-message]="message.userId === userId">
+            <div class="message-header">
+              <span class="username">{{ message.username }}</span>
+              <span class="timestamp">{{ message.timestamp | date:'HH:mm' }}</span>
+            </div>
+            <div class="message-content">{{ message.message }}</div>
+          </div>
         }
-
-        <div style="flex:1"></div>
-        <div class="small">Live • <span id="liveTimer">{{ liveTimer() | date:'mm:ss' }}</span></div>
+        
+        @if (chatMessages().length === 0) {
+          <div class="no-messages">
+            <p>💬 No messages yet. Start the conversation!</p>
+          </div>
+        }
+      </div>
+      
+      <div class="chat-input">
+        <input 
+          type="text" 
+          placeholder="Type your message..." 
+          [value]="currentMessage()"
+          (input)="updateCurrentMessage($event)"
+          (keypress)="onChatKeyPress($event)"
+          [disabled]="chatInputDisabled()"
+          class="message-input"
+        />
+        <button 
+          (click)="sendChatMessage()" 
+          [disabled]="!currentMessage().trim() || chatInputDisabled()"
+          class="send-btn"
+        >
+          Send
+        </button>
       </div>
     </div>
-
-    @if (showChat()) {
-    <div class="chat">
-      <button class="control-btn close-chat-btn" (click)="toggleChat()">✖</button>
-      <iframe id="chatIframe" src="about:blank" title="Live Chat"></iframe>
-    </div>
-    }
-
+    
+  </div>
 
   <!-- Host controls (minimize/maximize) with participants visible only to host -->
-  <div [class.host-panel]="true" [class.minimized]="hostPanelMinimized()">
-    <div class="host-header">
-      <div style="display:flex;flex-direction:column">
-        <strong>Host Controls</strong>
-        <span class="small" style="color:var(--muted);margin-top:4px;display:none">Participants: {{ participants()
-          }}</span>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button (click)="toggleHostPanel()" class="control-btn" style="padding:4px 8px">{{ hostPanelMinimized() ? '➕' :
-          '➖' }}</button>
-      </div>
+  <div class="host-panel" [class.minimized]="hostPanelMinimized()">
+    <div class="host-controls">
+      <button (click)="toggleHostPanel()" class="minimize-btn">
+        {{ hostPanelMinimized() ? '🔼' : '🔽' }} Host Panel
+      </button>
     </div>
-
     @if (!hostPanelMinimized()) {
-    <div class="host-body">
-      <label>Push Quick Message</label>
-      <div class="form-row">
-        <input id="quickMsg" placeholder="Type message to show to all viewers" />
-        <button class="control-btn">Push</button>
-      </div>
+    <div class="host-content">
+      <div class="participants-section">
+        <h4>Host Controls</h4>
+        <p>Participants: {{ participants() }}</p>
+        <p>Broadcast Status: {{ hostBroadcastStatus() }}</p>
+        
+        <label>Push Quick Message</label>
+        <div class="form-row">
+          <input id="quickMsg" placeholder="Type message to show to all viewers" />
+          <button class="control-btn">Push</button>
+        </div>
 
-      <label>Create Poll</label>
-      <input id="pollQ" placeholder="Poll question" />
-      <div class="form-row">
-        <input id="opt1" placeholder="Option 1" />
-        <input id="opt2" placeholder="Option 2" />
+        <label>Create Poll</label>
+        <input id="pollQ" placeholder="Poll question" />
+        <div class="form-row">
+          <input id="opt1" placeholder="Option 1" />
+          <input id="opt2" placeholder="Option 2" />
+        </div>
       </div>
-      <div class="form-row">
-        <input id="opt3" placeholder="Option 3 (optional)" />
-        <input id="opt4" placeholder="Option 4 (optional)" />
-      </div>
-      <div class="form-row">
-        <select id="pollDur">
-          <option value="15">15s</option>
-          <option value="30">30s</option>
-          <option value="60">60s</option>
-          <option value="0">No timeout</option>
-        </select>
-        <button class="control-btn">Create Poll</button>
-      </div>
-
-      <label>Share Material (link)</label>
-      <div class="form-row">
-        <input id="materialLink" placeholder="Presigned URL or link" />
-        <button class="control-btn">Share</button>
-      </div>
-
-      <label>Share UPI QR</label>
-      <div class="form-row">
-        <input id="upiId" placeholder="yourupi@bank" />
-        <button class="control-btn">Show QR</button>
-      </div>
-
-      <hr class="separator">
-      <div class="small">Host broadcast status: <span>{{ hostBroadcastStatus() }}</span></div>
     </div>
     }
   </div>
+
 </div>

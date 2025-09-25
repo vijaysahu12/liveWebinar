@@ -17,6 +17,14 @@ interface Poll {
     options: string[];
     duration: number;
 }
+
+interface ChatMessage {
+    id: string;
+    username: string;
+    message: string;
+    timestamp: Date;
+    userId: string;
+}
 @Component({
     selector: 'app-viewer',
     standalone: true,
@@ -26,7 +34,7 @@ interface Poll {
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ViewerComponent implements OnInit {
-    showChat = signal(false);
+    showChat = signal(true); // Changed to true by default for new layout
     hostPanelMinimized = signal(false);
     viewerCount = signal(0);
     liveTimer = signal(new Date(0));
@@ -34,11 +42,17 @@ export class ViewerComponent implements OnInit {
     hostBroadcastStatus = signal('Live');
     streamStatus = signal('● LIVE');
     connectionStatus = signal('Connecting...');
+    
+    // Chat-related properties
+    chatMessages = signal<ChatMessage[]>([]);
+    currentMessage = signal('');
+    chatInputDisabled = signal(false);
 
     viewers = 0;
     overlays: any[] = [];
     private webinarId = '1'; // Changed from 'webinar-1' to '1' to match backend int parsing
-    private userId = '';
+    public userId = ''; // Made public for template access
+    private username = ''; // Store username for chat
 
     constructor(private sr: SignalrService, @Inject(PLATFORM_ID) private platformId: Object) {
         // Initialize userId - will be set properly in ngOnInit when platform is available
@@ -67,16 +81,19 @@ export class ViewerComponent implements OnInit {
                 try {
                     const user = JSON.parse(userData);
                     this.userId = user.userId.toString();
+                    this.username = user.name; // Store username for chat
                     console.log('🆔 Using authenticated userId:', this.userId, 'for user:', user.name, '(' + user.mobile + ')');
                 } catch (error) {
                     console.error('❌ Error parsing user data:', error);
                     // Fallback - should not happen if login flow works correctly
                     this.userId = 'viewer-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+                    this.username = 'Anonymous';
                 }
             } else {
                 console.warn('⚠️ No authenticated user found - this should not happen');
                 // Fallback - should not happen if login flow works correctly
                 this.userId = 'viewer-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+                this.username = 'Anonymous';
             }
         } else {
             // Fallback for SSR - generate temporary ID
@@ -135,7 +152,11 @@ export class ViewerComponent implements OnInit {
             this.handleForceDisconnect(data);
         });
         
-        this.showChat.set(true);
+        // Subscribe to chat messages
+        this.sr.chatMessage$.subscribe(chatData => {
+            console.log('💬 Chat message received:', chatData);
+            this.addChatMessage(chatData);
+        });
         
         // Ping every 30 seconds to keep connection alive (only if connected)
         setInterval(() => {
@@ -151,10 +172,6 @@ export class ViewerComponent implements OnInit {
         setInterval(() => {
             console.log('🔍 Current viewer count signal value:', this.viewerCount());
         }, 5000);
-    }
-
-    toggleChat() {
-        this.showChat.update(val => !val);
     }
 
     toggleHostPanel() {
@@ -239,5 +256,63 @@ export class ViewerComponent implements OnInit {
         this.viewerCount.set(0);
         this.participants.set(0);
         console.log('📱 UI should now display in offline mode with no error messages to user');
+    }
+    
+    // Chat methods
+    sendChatMessage() {
+        const message = this.currentMessage().trim();
+        if (!message || this.chatInputDisabled()) return;
+        
+        if (this.connectionStatus() === 'Connected') {
+            const chatMessage: ChatMessage = {
+                id: Date.now().toString() + '-' + this.userId,
+                username: this.username,
+                message: message,
+                timestamp: new Date(),
+                userId: this.userId
+            };
+            
+            console.log('💬 Sending chat message:', chatMessage);
+            this.sr.sendChatMessage(this.webinarId, chatMessage);
+            this.currentMessage.set('');
+        } else {
+            console.warn('⚠️ Cannot send message - server offline');
+            // Add to local messages as a fallback
+            this.addChatMessage({
+                id: Date.now().toString(),
+                username: this.username,
+                message: message + ' (offline)',
+                timestamp: new Date(),
+                userId: this.userId
+            });
+            this.currentMessage.set('');
+        }
+    }
+    
+    onChatKeyPress(event: KeyboardEvent) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            this.sendChatMessage();
+        }
+    }
+    
+    updateCurrentMessage(event: any) {
+        this.currentMessage.set(event.target.value);
+    }
+    
+    private addChatMessage(message: ChatMessage) {
+        this.chatMessages.update(messages => {
+            const newMessages = [...messages, message];
+            // Keep only last 100 messages to prevent memory issues
+            return newMessages.slice(-100);
+        });
+        
+        // Auto-scroll to bottom
+        setTimeout(() => {
+            const chatContainer = document.querySelector('.chat-messages');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }, 100);
     }
 }

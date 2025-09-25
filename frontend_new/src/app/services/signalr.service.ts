@@ -11,6 +11,7 @@ export class SignalrService {
     public connectionStatus$ = new Subject<string>();
     public messages$ = new Subject<string>();
     public forceDisconnect$ = new Subject<any>();
+    public chatMessage$ = new Subject<any>();
 
 
     startConnection(webinarId: string, userId: string, role: string = 'viewer') {
@@ -108,6 +109,11 @@ export class SignalrService {
             this.messages$.next(`Error: ${errorMessage}`);
         });
         
+        this.hubConnection.on('ChatMessage', (chatData: any) => {
+            console.log('💬 Chat message received:', chatData);
+            this.chatMessage$.next(chatData);
+        });
+        
         console.log('✅ All SignalR event handlers registered');
     }
 
@@ -152,5 +158,18 @@ export class SignalrService {
             console.error('❌ Failed to send overlay (server offline):', err);
             // Don't show error to user
         });
+    }
+    
+    sendChatMessage(webinarId: string, chatMessage: any) {
+        if (this.hubConnection && this.hubConnection.state === signalR.HubConnectionState.Connected) {
+            console.log('💬 Sending chat message to webinar:', webinarId);
+            this.hubConnection.invoke('SendChatMessage', webinarId, chatMessage)
+                .catch(err => {
+                    console.error('❌ Failed to send chat message:', err);
+                    // Don't show error to user
+                });
+        } else {
+            console.warn('⚠️ Cannot send chat message - SignalR not connected');
+        }
     }
 }
