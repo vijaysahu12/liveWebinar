@@ -27,9 +27,9 @@ public class AuthenticationService : IAuthenticationService
 
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
             new Claim(ClaimTypes.Role, role),
-            new Claim("webinarId", webinarId),
+            new Claim("webinarId", webinarId.ToString()),
             new Claim("tokenType", "webinar-access"),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)

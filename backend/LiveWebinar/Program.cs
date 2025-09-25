@@ -23,6 +23,9 @@ options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectio
 // Register Authentication Service
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
+// Register User Service  
+builder.Services.AddScoped<IUserService, UserService>();
+
 
 // SignalR
 builder.Services.AddSignalR();

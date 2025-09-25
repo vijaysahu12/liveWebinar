@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignalR Viewer Count Test</title>
+    <script src="https://unpkg.com/@microsoft/signalr/dist/browser/signalr.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .connection { border: 1px solid #ccc; margin: 10px; padding: 15px; border-radius: 5px; }
+        .connected { border-color: green; }
+        .disconnected { border-color: red; }
+        button { margin: 5px; padding: 10px; }
+        .count { font-weight: bold; font-size: 18px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>SignalR Viewer Count Test</h1>
+    <div class="count">Current Viewer Count: <span id="viewerCount">0</span></div>
+    <div class="count">Total Participants: <span id="totalCount">0</span></div>
+    
+    <button onclick="createConnection()">Add New Viewer</button>
+    <button onclick="disconnectAll()">Disconnect All</button>
+    <button onclick="refreshCount()">Refresh Count</button>
+    
+    <div id="connections"></div>
+
+    <script>
+        let connections = [];
+        let connectionCounter = 1;
+        
+        async function createConnection() {
+            // Use persistent user ID from localStorage (similar to Angular app)
+            let userId = localStorage.getItem('test-userId');
+            if (!userId) {
+                userId = 'test-user-' + Date.now();
+                localStorage.setItem('test-userId', userId);
+            }
+            
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl(`http://localhost:5021/hubs/webinar?webinarId=1&userId=${userId}&role=viewer`)
+                .withAutomaticReconnect()
+                .build();
+            
+            const connectionDiv = document.createElement('div');
+            connectionDiv.className = 'connection';
+            connectionDiv.id = `connection-${connectionCounter}`;
+            connectionDiv.innerHTML = `
+                <h3>Viewer ${connectionCounter} (UserID: ${userId})</h3>
+                <p>Status: <span class="status">Connecting...</span></p>
+                <button onclick="disconnectConnection('${connectionCounter}')">Disconnect</button>
+                <button onclick="clearTestUserId()">Clear UserID & Reconnect</button>
+            `;
+            document.getElementById('connections').appendChild(connectionDiv);
+            
+            // Event handlers
+            connection.onclose(() => {
+                updateConnectionStatus(connectionCounter, 'Disconnected');
+                connectionDiv.className = 'connection disconnected';
+            });
+            
+            connection.on('CountsUpdated', (viewers, participants) => {
+                document.getElementById('viewerCount').textContent = viewers;
+                document.getElementById('totalCount').textContent = participants;
+                console.log(`Count updated: ${viewers} viewers, ${participants} total`);
+            });
+            
+            connection.on('Connected', (message) => {
+                console.log('Welcome:', message);
+            });
+            
+            try {
+                await connection.start();
+                updateConnectionStatus(connectionCounter, 'Connected');
+                connectionDiv.className = 'connection connected';
+                connections.push({ id: connectionCounter, connection: connection, userId: userId });
+                connectionCounter++;
+            } catch (err) {
+                updateConnectionStatus(connectionCounter, 'Failed: ' + err.toString());
+                connectionDiv.className = 'connection disconnected';
+            }
+        }
+        
+        function updateConnectionStatus(id, status) {
+            const statusSpan = document.querySelector(`#connection-${id} .status`);
+            if (statusSpan) {
+                statusSpan.textContent = status;
+            }
+        }
+        
+        async function disconnectConnection(id) {
+            const conn = connections.find(c => c.id == id);
+            if (conn) {
+                await conn.connection.stop();
+                connections = connections.filter(c => c.id != id);
+                document.getElementById(`connection-${id}`).remove();
+            }
+        }
+        
+        async function disconnectAll() {
+            for (const conn of connections) {
+                await conn.connection.stop();
+            }
+            connections = [];
+            document.getElementById('connections').innerHTML = '';
+        }
+        
+        async function refreshCount() {
+            if (connections.length > 0) {
+                await connections[0].connection.invoke('GetViewerCount', '1');
+            }
+        }
+        
+        function clearTestUserId() {
+            localStorage.removeItem('test-userId');
+            alert('Test UserID cleared! Refresh the page to get a new ID.');
+        }
+        
+        // Create first connection automatically
+        window.onload = () => {
+            createConnection();
+        };
+    </script>
+</body>
+</html>
