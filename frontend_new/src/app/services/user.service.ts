@@ -119,10 +119,13 @@ export class UserService {
 
       return result;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login failed - server may be unavailable:', error);
+      console.warn('⚠️ Network error during login attempt');
+      
+      // Return user-friendly error message, don't expose technical details
       return {
         success: false,
-        message: 'Network error. Please try again.'
+        message: 'Unable to connect to server. Please check your connection and try again.'
       };
     }
   }

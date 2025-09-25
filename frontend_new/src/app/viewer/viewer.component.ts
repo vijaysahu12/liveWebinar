@@ -103,7 +103,18 @@ export class ViewerComponent implements OnInit {
         // Subscribe to connection status updates
         this.sr.connectionStatus$.subscribe(status => {
             this.connectionStatus.set(status);
-            console.log('🔗 Connection status:', status);
+            
+            // Log connection status to console, but don't show errors to user
+            if (status === 'Offline') {
+                console.warn('⚠️ Connection status: Server is offline - running in offline mode');
+                console.log('� UI will continue to display normally without live data updates');
+            } else if (status === 'Connected') {
+                console.log('✅ Connection status: Connected to server');
+            } else if (status === 'Reconnecting...') {
+                console.log('🔄 Connection status: Attempting to reconnect to server...');
+            } else {
+                console.log('�🔗 Connection status:', status);
+            }
         });
         
         // Subscribe to overlay updates (polls, messages, etc.)
@@ -126,10 +137,14 @@ export class ViewerComponent implements OnInit {
         
         this.showChat.set(true);
         
-        // Ping every 30 seconds to keep connection alive
+        // Ping every 30 seconds to keep connection alive (only if connected)
         setInterval(() => {
-            console.log('🏓 Sending ping...');
-            this.sr.ping();
+            if (this.connectionStatus() === 'Connected') {
+                console.log('🏓 Sending ping...');
+                this.sr.ping();
+            } else {
+                console.log('🏓 Ping skipped - server offline or disconnected');
+            }
         }, 30000);
 
         // Debug: Log current viewer count every 5 seconds
@@ -148,8 +163,12 @@ export class ViewerComponent implements OnInit {
 
     // Manual viewer count methods (for demo purposes)
     incrementViewerCount() {
-        // Request updated viewer count from server
-        this.sr.getViewerCount(this.webinarId);
+        if (this.connectionStatus() === 'Connected') {
+            // Request updated viewer count from server
+            this.sr.getViewerCount(this.webinarId);
+        } else {
+            console.log('📊 Cannot increment viewer count - server offline');
+        }
     }
 
     resetViewerCount() {
@@ -159,7 +178,11 @@ export class ViewerComponent implements OnInit {
     
     // Method to manually refresh viewer count
     refreshViewerCount() {
-        this.sr.getViewerCount(this.webinarId);
+        if (this.connectionStatus() === 'Connected') {
+            this.sr.getViewerCount(this.webinarId);
+        } else {
+            console.log('📊 Cannot refresh viewer count - server offline');
+        }
     }
     
     // Method to disconnect from SignalR
@@ -179,14 +202,20 @@ export class ViewerComponent implements OnInit {
     private handleForceDisconnect(data: any) {
         console.warn('🔒 Session disconnected - another login detected from:', data.newLocation);
         
-        // Show user-friendly message
-        const message = `Your session has been disconnected because you logged in from another location (${data.newLocation}). This connection will now be closed.`;
+        // Log detailed information for debugging
+        console.log('ForceDisconnect data received:', data);
         
         if (isPlatformBrowser(this.platformId)) {
-            // Show alert to user
-            alert(message);
+            // Show user-friendly message only if we have valid data
+            if (data && data.newLocation) {
+                const message = `Your session has been disconnected because you logged in from another location (${data.newLocation}). This connection will now be closed.`;
+                alert(message);
+            } else {
+                // Generic message if data is incomplete
+                alert('Your session has been disconnected due to another login. This connection will now be closed.');
+            }
             
-            // Optionally clear session data to prevent auto-reconnect
+            // Clear session data to prevent auto-reconnect
             localStorage.removeItem('liveWebinar-user');
             
             // Redirect to login or reload page
@@ -200,5 +229,15 @@ export class ViewerComponent implements OnInit {
     // Method to get current user ID
     getCurrentUserId(): string {
         return this.userId;
+    }
+    
+    // Method to test offline mode (for development/testing)
+    testOfflineMode() {
+        console.log('🧪 Testing offline mode...');
+        this.sr.disconnect();
+        this.connectionStatus.set('Offline');
+        this.viewerCount.set(0);
+        this.participants.set(0);
+        console.log('📱 UI should now display in offline mode with no error messages to user');
     }
 }

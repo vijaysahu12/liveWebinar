@@ -34,22 +34,37 @@ export class SignalrService {
             // Request initial viewer count
             this.getViewerCount(webinarId);
         }).catch(err => {
-            console.error('❌ SignalR connection failed:', err);
-            this.connectionStatus$.next('Failed to connect: ' + err.message);
+            // Log error to console for debugging, but don't show error to user
+            console.error('❌ SignalR connection failed (server may be unavailable):', err);
+            console.warn('⚠️ Running in offline mode - UI will display without live data');
+            
+            // Set a neutral status that won't show error messages to user
+            this.connectionStatus$.next('Offline');
+            
+            // Emit default/mock data so the UI displays normally
+            this.counts$.next({ viewers: 0, participants: 0 });
         });
 
         // Handle reconnection events
         this.hubConnection.onreconnecting(() => {
+            console.log('🔄 SignalR attempting to reconnect...');
             this.connectionStatus$.next('Reconnecting...');
         });
 
         this.hubConnection.onreconnected(() => {
-            this.connectionStatus$.next('Reconnected');
+            console.log('✅ SignalR reconnected successfully');
+            this.connectionStatus$.next('Connected');
             this.getViewerCount(webinarId);
         });
 
-        this.hubConnection.onclose(() => {
-            this.connectionStatus$.next('Disconnected');
+        this.hubConnection.onclose((error) => {
+            if (error) {
+                console.error('❌ SignalR connection closed with error:', error);
+                console.warn('⚠️ Server connection lost - continuing in offline mode');
+            } else {
+                console.log('✅ SignalR connection closed gracefully');
+            }
+            this.connectionStatus$.next('Offline');
         });
     }
 
@@ -99,15 +114,26 @@ export class SignalrService {
     getViewerCount(webinarId: string) {
         if (this.hubConnection && this.hubConnection.state === signalR.HubConnectionState.Connected) {
             console.log('📊 Requesting viewer count for webinar:', webinarId);
-            this.hubConnection.invoke('GetViewerCount', webinarId);
+            this.hubConnection.invoke('GetViewerCount', webinarId)
+                .catch(err => {
+                    console.error('❌ Failed to get viewer count:', err);
+                    // Don't show error to user, just continue with current count
+                });
         } else {
-            console.warn('⚠️ Cannot get viewer count - SignalR not connected. State:', this.hubConnection?.state);
+            console.warn('⚠️ Cannot get viewer count - SignalR not connected (server offline). State:', this.hubConnection?.state);
+            // Don't show error to user, just maintain current state
         }
     }
 
     ping() {
         if (this.hubConnection && this.hubConnection.state === signalR.HubConnectionState.Connected) {
-            this.hubConnection.invoke('Ping');
+            this.hubConnection.invoke('Ping')
+                .catch(err => {
+                    console.error('❌ Ping failed:', err);
+                    // Don't show error to user
+                });
+        } else {
+            console.log('🏓 Ping skipped - server offline');
         }
     }
 
@@ -118,11 +144,13 @@ export class SignalrService {
         }
     }
 
-
     sendOverlay(webinarId: string, payload: any) {
         // call backend endpoint or hub method (if host) — demo uses HTTP POST to BroadcastController
         fetch(`http://localhost:5000/api/broadcast/overlay/${webinarId}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        }).catch(err => {
+            console.error('❌ Failed to send overlay (server offline):', err);
+            // Don't show error to user
         });
     }
 }

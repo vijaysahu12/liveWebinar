@@ -3,6 +3,7 @@
       <button class="control-btn" (click)="refreshViewerCount()">🔄 Refresh Count</button>
       <button class="control-btn" (click)="incrementViewerCount()">👍 Like</button>
       <button class="control-btn" (click)="clearUserId()">🗑️ Clear User ID</button>
+      <button class="control-btn" (click)="testOfflineMode()">📱 Test Offline</button>
       @if (!showChat()) {
       <button class="control-btn toggle-chat-btn" (click)="toggleChat()">Show Chat</button>
       }
@@ -29,8 +30,16 @@
           </div>
           <div class="small stream-status">{{ streamStatus() }}</div>
           <div class="small connection-status"
-            [style.color]="connectionStatus() === 'Connected' ? 'green' : connectionStatus() === 'Disconnected' ? 'red' : 'orange'">
-            {{ connectionStatus() }}
+            [style.color]="connectionStatus() === 'Connected' ? 'green' : connectionStatus() === 'Offline' ? 'orange' : connectionStatus() === 'Reconnecting...' ? 'blue' : 'gray'">
+            @if (connectionStatus() === 'Connected') {
+              🟢 Live
+            } @else if (connectionStatus() === 'Offline') {
+              🟠 Offline Mode
+            } @else if (connectionStatus() === 'Reconnecting...') {
+              🔵 Connecting...
+            } @else {
+              ⚪ {{ connectionStatus() }}
+            }
           </div>
         </div>
       </div>
