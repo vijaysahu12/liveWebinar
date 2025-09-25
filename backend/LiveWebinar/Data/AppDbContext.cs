@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using Webinar.Api.Models;
+using liveWebinar.Models;
 
 
-namespace Webinar.Api.Data;
+namespace liveWebinar.Data;
 
 
 public class AppDbContext : DbContext

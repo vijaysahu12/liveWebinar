@@ -1,9 +1,10 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
-using Webinar.Api.Data;
-using Webinar.Api.Hubs;
-using Backend.Controllers; // Added for LiveWebinarController
+using liveWebinar.Data;
+using liveWebinar.Hubs;
+using liveWebinar.Controllers; // Added for LiveWebinarController
+using liveWebinar.Services;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +19,9 @@ builder.Services.AddSwaggerGen();
 // EF Core with SQL Server (connection string in appsettings)
 builder.Services.AddDbContext<AppDbContext>(options =>
 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register Authentication Service
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
 
 // SignalR

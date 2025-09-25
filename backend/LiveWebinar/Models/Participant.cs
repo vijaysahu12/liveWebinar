@@ -1,4 +1,4 @@
-namespace Webinar.Api.Models;
+namespace liveWebinar.Models;
 
 public class Participant
 {

@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.SignalR;
-using Webinar.Api.Data;
-using Webinar.Api.Models;
+using liveWebinar.Data;
+using liveWebinar.Models;
 
 
-namespace Webinar.Api.Hubs;
+namespace liveWebinar.Hubs;
 
 
 public class WebinarHub : Hub

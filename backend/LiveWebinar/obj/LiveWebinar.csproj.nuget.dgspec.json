@@ -1,25 +1,31 @@
 {
   "format": 1,
   "restore": {
-    "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/liveWebinar/backend/LiveWebinar/LiveWebinar.csproj": {}
+    "D:\\Office\\Work\\liveWebinar\\backend\\LiveWebinar\\LiveWebinar.csproj": {}
   },
   "projects": {
-    "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/liveWebinar/backend/LiveWebinar/LiveWebinar.csproj": {
+    "D:\\Office\\Work\\liveWebinar\\backend\\LiveWebinar\\LiveWebinar.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/liveWebinar/backend/LiveWebinar/LiveWebinar.csproj",
+        "projectUniqueName": "D:\\Office\\Work\\liveWebinar\\backend\\LiveWebinar\\LiveWebinar.csproj",
         "projectName": "LiveWebinar",
-        "projectPath": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/liveWebinar/backend/LiveWebinar/LiveWebinar.csproj",
-        "packagesPath": "/Users/marketbhavishya/.nuget/packages/",
-        "outputPath": "/Users/marketbhavishya/Documents/Works/Office/Live Streaming/liveWebinar/backend/LiveWebinar/obj/",
+        "projectPath": "D:\\Office\\Work\\liveWebinar\\backend\\LiveWebinar\\LiveWebinar.csproj",
+        "packagesPath": "C:\\Users\\Jarvis\\.nuget\\packages\\",
+        "outputPath": "D:\\Office\\Work\\liveWebinar\\backend\\LiveWebinar\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "/Users/marketbhavishya/.nuget/NuGet/NuGet.Config"
+          "C:\\Users\\Jarvis\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
         ],
         "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -44,9 +50,25 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "dependencies": {
+            "Microsoft.AspNetCore.Authentication.JwtBearer": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
             "Microsoft.AspNetCore.OpenApi": {
               "target": "Package",
               "version": "[9.0.9, )"
+            },
+            "Microsoft.EntityFrameworkCore.SqlServer": {
+              "target": "Package",
+              "version": "[9.0.0, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[6.8.1, )"
+            },
+            "System.IdentityModel.Tokens.Jwt": {
+              "target": "Package",
+              "version": "[8.2.1, )"
             }
           },
           "imports": [
@@ -68,7 +90,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.305/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.302/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

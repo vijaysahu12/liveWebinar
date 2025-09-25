@@ -1,0 +1,68 @@
+@baseUrl = http://localhost:5021
+@webinarId = webinar-123
+@hostUserId = host-user-1
+@viewerUserId = viewer-user-1
+
+### Test Authentication Endpoints
+
+# Generate host token (first ensure there's a host participant record)
+POST {{baseUrl}}/api/auth/generate-host-token
+Content-Type: application/json
+
+{
+  "userId": "{{hostUserId}}",
+  "webinarId": "{{webinarId}}"
+}
+
+###
+
+# Test overlay broadcast with valid token
+# First get the token from the above request, then use it here
+POST {{baseUrl}}/api/broadcast/overlay/{{webinarId}}
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+X-User-Id: {{hostUserId}}
+
+{
+  "type": "poll",
+  "question": "What do you think about this feature?",
+  "options": ["Great", "Good", "Needs improvement"],
+  "duration": 60
+}
+
+###
+
+# Test overlay broadcast without token (should fail)
+POST {{baseUrl}}/api/broadcast/overlay/{{webinarId}}
+Content-Type: application/json
+X-User-Id: {{hostUserId}}
+
+{
+  "type": "message",
+  "text": "This should fail"
+}
+
+###
+
+# Test overlay broadcast with invalid user (should fail)
+POST {{baseUrl}}/api/broadcast/overlay/{{webinarId}}
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+X-User-Id: {{viewerUserId}}
+
+{
+  "type": "message",
+  "text": "This should also fail"
+}
+
+###
+
+# Validate token
+POST {{baseUrl}}/api/auth/validate-token
+Content-Type: application/json
+
+{
+  "token": "Bearer YOUR_TOKEN_HERE",
+  "userId": "{{hostUserId}}",
+  "webinarId": "{{webinarId}}"
+}
