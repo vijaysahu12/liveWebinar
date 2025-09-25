@@ -22,15 +22,15 @@ namespace liveWebinar.Controllers
         }
 
         [HttpPost("overlay/{webinarId}")]
-        public async Task<IActionResult> Overlay(string webinarId, [FromBody] object payload)
+        public async Task<IActionResult> Overlay(int webinarId, [FromBody] object payload)
         {
             // Validate host token/role
-            var userId = Request.Headers["X-User-Id"].FirstOrDefault();
+            var userIdHeader = Request.Headers["X-User-Id"].FirstOrDefault();
             var hostToken = Request.Headers["Authorization"].FirstOrDefault();
             
-            if (string.IsNullOrEmpty(userId))
+            if (string.IsNullOrEmpty(userIdHeader) || !long.TryParse(userIdHeader, out long userId))
             {
-                return BadRequest("User ID is required in X-User-Id header");
+                return BadRequest("Valid User ID is required in X-User-Id header");
             }
 
             if (string.IsNullOrEmpty(hostToken))
@@ -50,13 +50,13 @@ namespace liveWebinar.Controllers
             }
 
             // Additional token validation using JWT service
-            if (!_authService.IsValidHostToken(hostToken, userId, webinarId))
+            if (!_authService.IsValidHostToken(hostToken, userId.ToString(), webinarId.ToString()))
             {
                 return Unauthorized("Invalid authorization token");
             }
 
             // Send overlay to all participants in the webinar
-            await _hub.Clients.Group(webinarId).SendAsync("Overlay", payload);
+            await _hub.Clients.Group(webinarId.ToString()).SendAsync("Overlay", payload);
             return Ok(new { message = "Overlay sent successfully", webinarId, timestamp = DateTime.UtcNow });
         }
     }

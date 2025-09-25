@@ -32,7 +32,7 @@ public class AuthController : ControllerBase
             return BadRequest("User is not a host for the specified webinar");
         }
 
-        var token = _authService.GenerateJwtToken(request.UserId, "host", request.WebinarId);
+        var token = _authService.GenerateJwtToken(request.UserId.ToString(), "host", request.WebinarId.ToString());
         
         return Ok(new { 
             token = token, 
@@ -46,7 +46,7 @@ public class AuthController : ControllerBase
     [HttpPost("validate-token")]
     public IActionResult ValidateToken([FromBody] ValidateTokenRequest request)
     {
-        var isValid = _authService.IsValidHostToken(request.Token, request.UserId, request.WebinarId);
+        var isValid = _authService.IsValidHostToken(request.Token, request.UserId.ToString(), request.WebinarId.ToString());
         
         return Ok(new { 
             isValid = isValid,
@@ -57,13 +57,13 @@ public class AuthController : ControllerBase
 
 public class GenerateTokenRequest
 {
-    public string UserId { get; set; } = string.Empty;
-    public string WebinarId { get; set; } = string.Empty;
+    public long UserId { get; set; }
+    public int WebinarId { get; set; }
 }
 
 public class ValidateTokenRequest
 {
     public string Token { get; set; } = string.Empty;
-    public string UserId { get; set; } = string.Empty;
-    public string WebinarId { get; set; } = string.Empty;
+    public long UserId { get; set; }
+    public int WebinarId { get; set; }
 }

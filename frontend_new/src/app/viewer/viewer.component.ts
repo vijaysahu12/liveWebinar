@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, effect, OnInit, signal } from '@angular/core';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 import { CommonModule } from '@angular/common';
+import { SignalrService } from '../services/signalr.service';
 
 interface EventConfig {
     title: string;
@@ -16,27 +17,6 @@ interface Poll {
     options: string[];
     duration: number;
 }
-
-// @Component({
-//   selector: 'app-viewer',
-//   templateUrl: './viewer.component.html',
-//   styleUrls: ['./viewer.component.css'],
-//   animations: [
-//     trigger('slideInOut', [
-//       state('void', style({ transform: 'translateX(100%)', opacity: 0 })),
-//       state('*', style({ transform: 'translateX(0)', opacity: 1 })),
-//       transition(':enter', [
-//         animate('300ms cubic-bezier(.25,.8,.25,1)')
-//       ]),
-//       transition(':leave', [
-//         animate('200ms cubic-bezier(.25,.8,.25,1)', style({ transform: 'translateX(100%)', opacity: 0 }))
-//       ])
-//     ])
-//   ]
-// })
-
-
-
 @Component({
     selector: 'app-viewer',
     standalone: true,
@@ -54,7 +34,10 @@ export class ViewerComponent implements OnInit {
     hostBroadcastStatus = signal('Live');
     streamStatus = signal('● LIVE');
 
-    constructor() {
+    viewers = 0;
+    overlays: any[] = [];
+
+    constructor(private sr: SignalrService) {
         effect(() => {
             // This effect can be used to react to changes in signals
             // For example, updating the viewer count or timer display
@@ -70,7 +53,11 @@ export class ViewerComponent implements OnInit {
         }, 1000);
     }
     ngOnInit(): void {
-        throw new Error('Method not implemented.');
+        const webinarId = 'webinar-1';
+        const userId = 'viewer-' + Math.random().toString(36).substr(2, 6);
+        this.sr.startConnection(webinarId, userId, 'viewer');
+        this.sr.counts$.subscribe(c => { this.viewerCount.set(c.viewers); this.participants.set(c.participants); });
+        this.sr.overlay$.subscribe(p => { this.overlays.push(p); setTimeout(() => this.overlays.shift(), (p.duration || 10) * 1000) });
     }
 
     toggleChat() {

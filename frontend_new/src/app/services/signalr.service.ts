@@ -12,7 +12,7 @@ export class SignalrService {
 
     startConnection(webinarId: string, userId: string, role: string = 'viewer') {
         this.hubConnection = new signalR.HubConnectionBuilder()
-            .withUrl(`http://localhost:5000/hubs/webinar?webinarId=${webinarId}&userId=${userId}&role=${role}`, { skipNegotiation: true, transport: signalR.HttpTransportType.WebSockets })
+            .withUrl(`http://localhost:5021/hubs/webinar?webinarId=${webinarId}&userId=${userId}&role=${role}`, { skipNegotiation: true, transport: signalR.HttpTransportType.WebSockets })
             .withAutomaticReconnect()
             .build();
 
