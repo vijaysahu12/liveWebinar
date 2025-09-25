@@ -112,20 +112,192 @@
         <p>Participants: {{ participants() }}</p>
         <p>Broadcast Status: {{ hostBroadcastStatus() }}</p>
 
-        <label>Push Quick Message</label>
-        <div class="form-row">
-          <input id="quickMsg" placeholder="Type message to show to all viewers" />
-          <button class="control-btn">Push</button>
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+          <h5>🚀 Quick Actions</h5>
+          <button class="action-btn poll-btn" (click)="createQuickPoll()">📊 Quick Poll</button>
+          <button class="action-btn like-btn" (click)="requestLikes()">❤️ Request Likes</button>
+          <button class="action-btn force-btn" (click)="forceLikeRequest()">💓 Force Like</button>
+          <button class="action-btn announcement-btn" (click)="sendQuickAnnouncement()">📢 Announce</button>
         </div>
 
-        <label>Create Poll</label>
-        <input id="pollQ" placeholder="Poll question" />
-        <div class="form-row">
-          <input id="opt1" placeholder="Option 1" />
-          <input id="opt2" placeholder="Option 2" />
+        <!-- QR Code Sharing -->
+        <div class="qr-section">
+          <h5>📱 QR Code Sharing</h5>
+          <button class="action-btn qr-btn" (click)="sharePaymentQR()">💳 Payment QR</button>
+          <button class="action-btn qr-btn" (click)="shareDownloadQR()">📲 App Download</button>
+        </div>
+
+        <!-- File Sharing -->
+        <div class="file-section">
+          <h5>📁 File Sharing</h5>
+          <button class="action-btn file-btn" (click)="sharePresentation()">📄 Share Slides</button>
+          <button class="action-btn file-btn" (click)="shareResources()">📦 Resources</button>
+        </div>
+
+        <!-- Custom Poll Creation -->
+        <div class="poll-section">
+          <h5>📊 Custom Poll</h5>
+          <button class="action-btn create-poll-btn" (click)="openPollModal()">
+            Create Poll
+          </button>
+        </div>
+
+        <!-- Announcements -->
+        <div class="announcement-section">
+          <h5>📢 Custom Announcement</h5>
+          <button class="action-btn announcement-btn" (click)="openAnnouncementModal()">
+            Send Announcement
+          </button>
+        </div>
+
+        <!-- Q&A Management -->
+        <div class="qa-section">
+          <h5>❓ Q&A Management</h5>
+          <button class="action-btn qa-btn" (click)="openQAModal()">
+            Ask Question
+          </button>
+        </div>
+
+        <!-- Engagement Analytics -->
+        <div class="analytics-section">
+          <h5>📈 Engagement Stats</h5>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <span class="stat-label">Total Interactions:</span>
+              <span class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Active Polls:</span>
+              <span class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Questions Asked:</span>
+              <span class="stat-value">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced Controls -->
+        <div class="advanced-section">
+          <h5>⚙️ Advanced Controls</h5>
+          <button class="action-btn combo-btn" (click)="quickEngagementActions()">
+            🎯 Run Engagement Sequence
+          </button>
         </div>
       </div>
     </div>
     }
+  </div>
+</div>
+
+<!-- Modal Overlays for Engagement Features -->
+
+<!-- Poll Creation Modal -->
+<div class="modal-overlay" [class.show]="showPollModal()" (click)="closePollModal()">
+  <div class="modal-container poll-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>📊 Create Poll</h3>
+      <button class="modal-close" (click)="closePollModal()">×</button>
+    </div>
+    <div class="modal-content">
+      <div class="form-group">
+        <label for="pollQuestion">Poll Question</label>
+        <input #pollQuestion id="pollQuestion" placeholder="Enter your poll question..." class="modal-input" />
+      </div>
+      <div class="form-group">
+        <label>Poll Options</label>
+        <div class="poll-options-input">
+          <input #pollOpt1 placeholder="Option 1" class="modal-input" />
+          <input #pollOpt2 placeholder="Option 2" class="modal-input" />
+          <input #pollOpt3 placeholder="Option 3 (optional)" class="modal-input" />
+          <input #pollOpt4 placeholder="Option 4 (optional)" class="modal-input" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>
+          <input type="checkbox" #allowMultiple> Allow Multiple Selections
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="closePollModal()">Cancel</button>
+      <button class="btn-primary" (click)="createPollFromModal()">
+        Create Poll
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Announcement Modal -->
+<div class="modal-overlay" [class.show]="showAnnouncementModal()" (click)="closeAnnouncementModal()">
+  <div class="modal-container announcement-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>📢 Make Announcement</h3>
+      <button class="modal-close" (click)="closeAnnouncementModal()">×</button>
+    </div>
+    <div class="modal-content">
+      <div class="form-group">
+        <label for="announcementTitle">Title</label>
+        <input #announcementTitle id="announcementTitle" placeholder="Announcement title..." class="modal-input" />
+      </div>
+      <div class="form-group">
+        <label for="announcementText">Message</label>
+        <textarea #announcementText id="announcementText" 
+                  placeholder="Your announcement message..." 
+                  class="modal-textarea" rows="4"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Display Duration</label>
+        <select #announcementDuration class="modal-select">
+          <option value="5">5 seconds</option>
+          <option value="10" selected>10 seconds</option>
+          <option value="15">15 seconds</option>
+          <option value="30">30 seconds</option>
+          <option value="0">Until dismissed</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="closeAnnouncementModal()">Cancel</button>
+      <button class="btn-primary" (click)="makeAnnouncementFromModal()">
+        Send Announcement
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Q&A Modal -->
+<div class="modal-overlay" [class.show]="showQAModal()" (click)="closeQAModal()">
+  <div class="modal-container qa-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>❓ Q&A Management</h3>
+      <button class="modal-close" (click)="closeQAModal()">×</button>
+    </div>
+    <div class="modal-content">
+      <div class="form-group">
+        <label for="questionText">Question</label>
+        <textarea #questionText id="questionText" 
+                  placeholder="Enter your question..." 
+                  class="modal-textarea" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Question Settings</label>
+        <div class="checkbox-group">
+          <label>
+            <input type="checkbox" #isPublicQuestion checked> Make question public
+          </label>
+          <label>
+            <input type="checkbox" #allowAnswers checked> Allow audience answers
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="closeQAModal()">Cancel</button>
+      <button class="btn-primary" (click)="askQuestionFromModal()">
+        Post Question
+      </button>
+    </div>
   </div>
 </div>

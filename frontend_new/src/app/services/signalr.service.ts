@@ -12,6 +12,15 @@ export class SignalrService {
     public messages$ = new Subject<string>();
     public forceDisconnect$ = new Subject<any>();
     public chatMessage$ = new Subject<any>();
+    
+    // New engagement event subjects
+    public pollCreated$ = new Subject<any>();
+    public pollVote$ = new Subject<any>();
+    public engagementContent$ = new Subject<any>();
+    public contentInteraction$ = new Subject<any>();
+    public questionAsked$ = new Subject<any>();
+    public questionAnswered$ = new Subject<any>();
+    public privateQuestionAsked$ = new Subject<any>();
 
 
     startConnection(webinarId: string, userId: string, role: string = 'viewer') {
@@ -114,6 +123,42 @@ export class SignalrService {
             this.chatMessage$.next(chatData);
         });
         
+        // Engagement event handlers
+        this.hubConnection.on('PollCreated', (pollData: any) => {
+            console.log('📊 Poll created:', pollData);
+            this.pollCreated$.next(pollData);
+        });
+        
+        this.hubConnection.on('PollVote', (voteData: any) => {
+            console.log('🗳️ Poll vote received:', voteData);
+            this.pollVote$.next(voteData);
+        });
+        
+        this.hubConnection.on('EngagementContent', (contentData: any) => {
+            console.log('🎯 Engagement content received:', contentData);
+            this.engagementContent$.next(contentData);
+        });
+        
+        this.hubConnection.on('ContentInteraction', (interactionData: any) => {
+            console.log('👆 Content interaction received:', interactionData);
+            this.contentInteraction$.next(interactionData);
+        });
+        
+        this.hubConnection.on('QuestionAsked', (questionData: any) => {
+            console.log('❓ Question asked:', questionData);
+            this.questionAsked$.next(questionData);
+        });
+        
+        this.hubConnection.on('PrivateQuestionAsked', (questionData: any) => {
+            console.log('🔒 Private question asked:', questionData);
+            this.privateQuestionAsked$.next(questionData);
+        });
+        
+        this.hubConnection.on('QuestionAnswered', (answerData: any) => {
+            console.log('✅ Question answered:', answerData);
+            this.questionAnswered$.next(answerData);
+        });
+        
         console.log('✅ All SignalR event handlers registered');
     }
 
@@ -170,6 +215,59 @@ export class SignalrService {
                 });
         } else {
             console.warn('⚠️ Cannot send chat message - SignalR not connected');
+        }
+    }
+
+    // Connection status check
+    isConnected(): boolean {
+        return this.hubConnection?.state === signalR.HubConnectionState.Connected;
+    }
+
+    // Get the connection object for direct invocation
+    get connection(): signalR.HubConnection | null {
+        return this.hubConnection;
+    }
+
+    // Engagement feature methods
+    createPoll(webinarId: string, question: string, options: string[], duration: number = 0) {
+        if (this.isConnected()) {
+            this.hubConnection!.invoke('CreatePoll', webinarId, question, options, duration)
+                .catch(err => console.error('❌ Failed to create poll:', err));
+        }
+    }
+
+    votePoll(webinarId: string, pollId: string, optionIndex: number) {
+        if (this.isConnected()) {
+            this.hubConnection!.invoke('VotePoll', webinarId, pollId, optionIndex)
+                .catch(err => console.error('❌ Failed to vote:', err));
+        }
+    }
+
+    sendEngagementContent(webinarId: string, type: string, title: string, description: string, content: any) {
+        if (this.isConnected()) {
+            this.hubConnection!.invoke('SendEngagementContent', webinarId, type, title, description, content)
+                .catch(err => console.error('❌ Failed to send engagement content:', err));
+        }
+    }
+
+    interactWithContent(webinarId: string, contentId: string, interactionType: string, data?: any) {
+        if (this.isConnected()) {
+            this.hubConnection!.invoke('InteractWithContent', webinarId, contentId, interactionType, data)
+                .catch(err => console.error('❌ Failed to interact with content:', err));
+        }
+    }
+
+    askQuestion(webinarId: string, questionText: string, isPublic: boolean = true) {
+        if (this.isConnected()) {
+            this.hubConnection!.invoke('AskQuestion', webinarId, questionText, isPublic)
+                .catch(err => console.error('❌ Failed to ask question:', err));
+        }
+    }
+
+    answerQuestion(webinarId: string, questionId: string, answerText: string, isPublic: boolean = true) {
+        if (this.isConnected()) {
+            this.hubConnection!.invoke('AnswerQuestion', webinarId, questionId, answerText, isPublic)
+                .catch(err => console.error('❌ Failed to answer question:', err));
         }
     }
 }

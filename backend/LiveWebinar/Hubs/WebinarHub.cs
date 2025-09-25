@@ -77,7 +77,6 @@ public class WebinarHub : Hub
                         existingParticipant.ConnectionId = Context.ConnectionId;
                         existingParticipant.LastActiveAt = DateTime.UtcNow;
                     }
-                    
                     await _db.SaveChangesAsync();
                 }
                 else
@@ -316,6 +315,211 @@ public class WebinarHub : Hub
         else
         {
             await Clients.Caller.SendAsync("Error", "Invalid webinar ID");
+        }
+    }
+
+    // Engagement Features
+    public async Task CreatePoll(string webinarId, string question, string[] options, int durationSeconds = 0)
+    {
+        if (int.TryParse(webinarId, out int webId))
+        {
+            var senderConnectionId = Context.ConnectionId;
+            var participant = await _db.Participants
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webId && p.IsActive);
+            
+            if (participant != null && participant.Role == "viewer")
+            {
+                var poll = new
+                {
+                    id = Guid.NewGuid().ToString(),
+                    question = question,
+                    options = options.Select((option, index) => new { id = index, text = option, votes = 0 }).ToArray(),
+                    duration = durationSeconds,
+                    startTime = DateTime.UtcNow,
+                    endTime = durationSeconds > 0 ? DateTime.UtcNow.AddSeconds(durationSeconds) : (DateTime?)null,
+                    isActive = true,
+                    totalVotes = 0,
+                    allowMultiple = false
+                };
+                
+                await Clients.Group(webinarId).SendAsync("PollCreated", poll);
+                Console.WriteLine($"📊 Poll created in webinar {webinarId}: {question}");
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", "Only hosts can create polls");
+            }
+        }
+    }
+
+    public async Task VotePoll(string webinarId, string pollId, int optionIndex)
+    {
+        if (int.TryParse(webinarId, out int webId))
+        {
+            var senderConnectionId = Context.ConnectionId;
+            var participant = await _db.Participants
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webId && p.IsActive);
+            
+            if (participant != null)
+            {
+                var vote = new
+                {
+                    pollId = pollId,
+                    optionIndex = optionIndex,
+                    userId = participant.UserId,
+                    username = participant.User.Name,
+                    votedAt = DateTime.UtcNow
+                };
+                
+                await Clients.Group(webinarId).SendAsync("PollVote", vote);
+                Console.WriteLine($"🗳️ Vote cast in poll {pollId} by {participant.User.Name}");
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", "You are not authorized to vote in this webinar");
+            }
+        }
+    }
+
+    public async Task SendEngagementContent(string webinarId, string type, string title, string description, object content)
+    {
+        if (int.TryParse(webinarId, out int webId))
+        {
+            var senderConnectionId = Context.ConnectionId;
+            var participant = await _db.Participants
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webId && p.IsActive);
+            
+            if (participant != null && participant.Role == "host")
+            {
+                var engagementContent = new
+                {
+                    id = Guid.NewGuid().ToString(),
+                    type = type,
+                    title = title,
+                    description = description,
+                    content = content,
+                    createdAt = DateTime.UtcNow,
+                    createdBy = participant.User.Name,
+                    isActive = true
+                };
+                
+                await Clients.Group(webinarId).SendAsync("EngagementContent", engagementContent);
+                Console.WriteLine($"🎯 Engagement content sent in webinar {webinarId}: {type} - {title}");
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", "Only hosts can send engagement content");
+            }
+        }
+    }
+
+    public async Task InteractWithContent(string webinarId, string contentId, string interactionType, object? data = null)
+    {
+        if (int.TryParse(webinarId, out int webId))
+        {
+            var senderConnectionId = Context.ConnectionId;
+            var participant = await _db.Participants
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webId && p.IsActive);
+            
+            if (participant != null)
+            {
+                var interaction = new
+                {
+                    contentId = contentId,
+                    userId = participant.UserId,
+                    username = participant.User.Name,
+                    interactionType = interactionType,
+                    data = data,
+                    timestamp = DateTime.UtcNow
+                };
+                
+                await Clients.Group(webinarId).SendAsync("ContentInteraction", interaction);
+                Console.WriteLine($"👆 Content interaction in webinar {webinarId}: {participant.User.Name} {interactionType} {contentId}");
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", "You are not authorized to interact in this webinar");
+            }
+        }
+    }
+
+    public async Task AskQuestion(string webinarId, string questionText, bool isPublic = true)
+    {
+        if (int.TryParse(webinarId, out int webId))
+        {
+            var senderConnectionId = Context.ConnectionId;
+            var participant = await _db.Participants
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webId && p.IsActive);
+            
+            if (participant != null)
+            {
+                var question = new
+                {
+                    id = Guid.NewGuid().ToString(),
+                    questionText = questionText,
+                    askedBy = participant.User.Name,
+                    askedAt = DateTime.UtcNow,
+                    isAnswered = false,
+                    isPublic = isPublic,
+                    answers = new object[0]
+                };
+                
+                if (isPublic)
+                {
+                    await Clients.Group(webinarId).SendAsync("QuestionAsked", question);
+                }
+                else
+                {
+                    // Send only to hosts for private questions
+                    var hosts = await _db.Participants
+                        .Where(p => p.WebinarId == webId && p.Role == "host" && p.IsActive)
+                        .Select(p => p.ConnectionId)
+                        .ToListAsync();
+                    
+                    await Clients.Clients(hosts).SendAsync("PrivateQuestionAsked", question);
+                }
+                
+                Console.WriteLine($"❓ Question asked in webinar {webinarId} by {participant.User.Name}: {questionText}");
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", "You are not authorized to ask questions in this webinar");
+            }
+        }
+    }
+
+    public async Task AnswerQuestion(string webinarId, string questionId, string answerText, bool isPublic = true)
+    {
+        if (int.TryParse(webinarId, out int webId))
+        {
+            var senderConnectionId = Context.ConnectionId;
+            var participant = await _db.Participants
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webId && p.IsActive);
+            
+            if (participant != null && participant.Role == "host")
+            {
+                var answer = new
+                {
+                    questionId = questionId,
+                    answerText = answerText,
+                    answeredBy = participant.User.Name,
+                    answeredAt = DateTime.UtcNow,
+                    isPublic = isPublic
+                };
+                
+                await Clients.Group(webinarId).SendAsync("QuestionAnswered", answer);
+                Console.WriteLine($"✅ Question answered in webinar {webinarId} by {participant.User.Name}");
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", "Only hosts can answer questions");
+            }
         }
     }
 }
