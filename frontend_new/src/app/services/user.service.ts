@@ -19,8 +19,10 @@ export interface LoginRequest {
 export interface LoginResponse {
   success: boolean;
   message: string;
-  user?: UserProfile;
   token?: string;
+  userId?: number;
+  name?: string;
+  mobile?: string;
   shouldLogoutOther?: boolean;
 }
 
@@ -63,7 +65,15 @@ export class UserService {
 
   private saveUserToStorage(user: UserProfile): void {
     if (isPlatformBrowser(this.platformId)) {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(user));
+      const dataToSave = JSON.stringify(user);
+      console.log('💾 Saving to localStorage:', this.STORAGE_KEY, dataToSave);
+      localStorage.setItem(this.STORAGE_KEY, dataToSave);
+      
+      // Verify it was saved
+      const saved = localStorage.getItem(this.STORAGE_KEY);
+      console.log('✅ Verified saved data:', saved);
+    } else {
+      console.log('⚠️ Not in browser, cannot save to localStorage');
     }
   }
 
@@ -86,18 +96,25 @@ export class UserService {
 
       const result: LoginResponse = await response.json();
 
-      if (result.success && result.user && result.token) {
+      console.log('🔍 Raw backend response:', result);
+
+      if (result.success && result.token && result.userId && result.name && result.mobile) {
         const user: UserProfile = {
-          ...result.user,
+          userId: result.userId.toString(),
+          name: result.name,
+          mobile: result.mobile,
           token: result.token,
           loginTime: Date.now(),
           expiresAt: Date.now() + this.TOKEN_LIFETIME
         };
 
+        console.log('🔍 User object to save:', user);
+        
         this.saveUserToStorage(user);
         this.userSubject.next(user);
         
         console.log('✅ User logged in successfully:', user.name);
+        console.log('💾 User saved to localStorage with key:', this.STORAGE_KEY);
       }
 
       return result;

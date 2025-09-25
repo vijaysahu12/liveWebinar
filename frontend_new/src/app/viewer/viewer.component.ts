@@ -62,19 +62,19 @@ export class ViewerComponent implements OnInit {
         // Only access localStorage in the browser (not during SSR)
         if (isPlatformBrowser(this.platformId)) {
             // Get authenticated user data from localStorage
-            const userData = localStorage.getItem('webinar_user');
+            const userData = localStorage.getItem('liveWebinar-user');
             if (userData) {
                 try {
                     const user = JSON.parse(userData);
                     this.userId = user.userId.toString();
-                    console.log('🆔 Using authenticated userId:', this.userId, 'for user:', user.name);
+                    console.log('🆔 Using authenticated userId:', this.userId, 'for user:', user.name, '(' + user.mobile + ')');
                 } catch (error) {
-                    console.error('Error parsing user data:', error);
+                    console.error('❌ Error parsing user data:', error);
                     // Fallback - should not happen if login flow works correctly
                     this.userId = 'viewer-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
                 }
             } else {
-                console.warn('No authenticated user found - this should not happen');
+                console.warn('⚠️ No authenticated user found - this should not happen');
                 // Fallback - should not happen if login flow works correctly
                 this.userId = 'viewer-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
             }
@@ -116,6 +116,12 @@ export class ViewerComponent implements OnInit {
         // Subscribe to general messages
         this.sr.messages$.subscribe(message => {
             console.log('💬 SignalR message:', message);
+        });
+        
+        // Subscribe to force disconnect events
+        this.sr.forceDisconnect$.subscribe(data => {
+            console.log('⚠️ Force disconnect received:', data);
+            this.handleForceDisconnect(data);
         });
         
         this.showChat.set(true);
@@ -167,6 +173,28 @@ export class ViewerComponent implements OnInit {
             localStorage.removeItem('liveWebinar-userId');
             console.log('🗑️ Cleared stored user ID. Refresh page to get new ID.');
         }
+    }
+    
+    // Handle force disconnect from another session
+    private handleForceDisconnect(data: any) {
+        console.warn('🔒 Session disconnected - another login detected from:', data.newLocation);
+        
+        // Show user-friendly message
+        const message = `Your session has been disconnected because you logged in from another location (${data.newLocation}). This connection will now be closed.`;
+        
+        if (isPlatformBrowser(this.platformId)) {
+            // Show alert to user
+            alert(message);
+            
+            // Optionally clear session data to prevent auto-reconnect
+            localStorage.removeItem('liveWebinar-user');
+            
+            // Redirect to login or reload page
+            window.location.reload();
+        }
+        
+        // Disconnect from SignalR to prevent reconnection attempts
+        this.sr.disconnect();
     }
     
     // Method to get current user ID

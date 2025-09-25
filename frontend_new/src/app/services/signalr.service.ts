@@ -10,6 +10,7 @@ export class SignalrService {
     public overlay$ = new Subject<any>();
     public connectionStatus$ = new Subject<string>();
     public messages$ = new Subject<string>();
+    public forceDisconnect$ = new Subject<any>();
 
 
     startConnection(webinarId: string, userId: string, role: string = 'viewer') {
@@ -80,6 +81,16 @@ export class SignalrService {
         
         this.hubConnection.on('Pong', (timestamp: string) => {
             console.log('🏓 Pong received at:', timestamp);
+        });
+        
+        this.hubConnection.on('ForceDisconnect', (data: any) => {
+            console.log('⚠️ ForceDisconnect event received:', data);
+            this.forceDisconnect$.next(data);
+        });
+        
+        this.hubConnection.on('Error', (errorMessage: string) => {
+            console.error('❌ Server error:', errorMessage);
+            this.messages$.next(`Error: ${errorMessage}`);
         });
         
         console.log('✅ All SignalR event handlers registered');

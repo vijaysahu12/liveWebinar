@@ -33,6 +33,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Participant>(entity =>
         {
             entity.HasKey(e => e.Id);
+            
+            // Create unique constraint on UserId + WebinarId combination
+            entity.HasIndex(e => new { e.UserId, e.WebinarId })
+                  .IsUnique()
+                  .HasDatabaseName("IX_Participants_UserId_WebinarId_Unique");
+            
             entity.HasOne(e => e.User)
                   .WithMany(u => u.Participations)
                   .HasForeignKey(e => e.UserId)

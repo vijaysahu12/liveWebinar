@@ -25,63 +25,131 @@ public class WebinarHub : Hub
             {
                 Console.WriteLine($"Processing connection: webinarId={webinarId}, userId={userId}, role='{role}'");
 
-                // CRITICAL: Remove any existing connections for this user to prevent duplicates on refresh/reconnect
-                var existingUserConnections = _db.Participants
-                    .Where(p => p.UserId == userId && p.WebinarId == webinarId)
-                    .ToList();
+                // Get client IP and User Agent for tracking different locations
+                var clientIp = http?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                var userAgent = http?.Request.Headers["User-Agent"].ToString() ?? "unknown";
+
+                // CRITICAL: Handle existing connections for this user in this webinar
+                var existingParticipant = await _db.Participants
+                    .FirstOrDefaultAsync(p => p.UserId == userId && p.WebinarId == webinarId && p.IsActive);
                 
-                if (existingUserConnections.Any())
+                if (existingParticipant != null)
                 {
-                    Console.WriteLine($"Removing {existingUserConnections.Count} existing connections for userId {userId} to prevent duplicates");
-                    _db.Participants.RemoveRange(existingUserConnections);
+                    Console.WriteLine($"Found existing active participant for userId {userId} in webinar {webinarId}");
+                    
+                    // Check if this is from a different location/device
+                    bool isDifferentLocation = existingParticipant.IpAddress != clientIp || 
+                                              existingParticipant.UserAgent != userAgent;
+                    
+                    if (isDifferentLocation)
+                    {
+                        Console.WriteLine($"User connecting from different location. Old: {existingParticipant.IpAddress}, New: {clientIp}");
+                        
+                        // Notify the previous connection that it's being disconnected
+                        try
+                        {
+                            await Clients.Client(existingParticipant.ConnectionId)
+                                .SendAsync("ForceDisconnect", new { 
+                                    reason = "Another session started from a different location",
+                                    newLocation = clientIp,
+                                    timestamp = DateTime.UtcNow 
+                                });
+                            
+                            // Remove from SignalR group
+                            await Groups.RemoveFromGroupAsync(existingParticipant.ConnectionId, webinarId.ToString());
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error notifying previous connection: {ex.Message}");
+                        }
+                        
+                        // Update the existing participant record with new connection details
+                        existingParticipant.ConnectionId = Context.ConnectionId;
+                        existingParticipant.ConnectedAt = DateTime.UtcNow;
+                        existingParticipant.LastActiveAt = DateTime.UtcNow;
+                        existingParticipant.IpAddress = clientIp;
+                        existingParticipant.UserAgent = userAgent;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Same user reconnecting from same location - updating connection details");
+                        // Same location, just update connection details
+                        existingParticipant.ConnectionId = Context.ConnectionId;
+                        existingParticipant.LastActiveAt = DateTime.UtcNow;
+                    }
+                    
                     await _db.SaveChangesAsync();
                 }
-
-                // Also remove any stale connections with the same ConnectionId (cleanup)
-                var existingConnectionId = _db.Participants.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
-                if (existingConnectionId != null)
+                else
                 {
-                    Console.WriteLine($"Removing stale connection with same ConnectionId: {Context.ConnectionId}");
-                    _db.Participants.Remove(existingConnectionId);
-                    await _db.SaveChangesAsync();
+                    // Verify user exists in Users table
+                    var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+                    if (user == null)
+                    {
+                        Console.WriteLine($"User {userId} not found or inactive");
+                        await Clients.Caller.SendAsync("Error", "User not found or inactive");
+                        return;
+                    }
+
+                    // Create new participant record
+                    var participant = new Participant 
+                    { 
+                        WebinarId = webinarId, 
+                        UserId = userId, 
+                        ConnectedAt = DateTime.UtcNow,
+                        LastActiveAt = DateTime.UtcNow,
+                        ConnectionId = Context.ConnectionId, 
+                        Role = role,
+                        IpAddress = clientIp,
+                        UserAgent = userAgent,
+                        IsActive = true
+                    };
+                    
+                    try
+                    {
+                        _db.Participants.Add(participant);
+                        await _db.SaveChangesAsync();
+                        Console.WriteLine($"Created new participant record for userId {userId}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error creating participant: {ex.Message}");
+                        // Handle unique constraint violation
+                        if (ex.InnerException?.Message?.Contains("IX_Participants_UserId_WebinarId_Unique") == true)
+                        {
+                            await Clients.Caller.SendAsync("Error", "You are already connected to this webinar");
+                            return;
+                        }
+                        throw;
+                    }
                 }
 
-                // Verify user exists in Users table
-                var user = _db.Users.FirstOrDefault(u => u.Id == userId && u.IsActive);
-                if (user == null)
-                {
-                    Console.WriteLine($"User {userId} not found or inactive");
-                    await Clients.Caller.SendAsync("Error", "User not found or inactive");
-                    return;
-                }
-
-                // Now add the new connection
-                var participant = new Participant 
-                { 
-                    WebinarId = webinarId, 
-                    UserId = userId, 
-                    ConnectedAt = DateTime.UtcNow, 
-                    ConnectionId = Context.ConnectionId, 
-                    Role = role
-                };
-                _db.Participants.Add(participant);
-                await _db.SaveChangesAsync();
-
-                // Add to SignalR group and send updated counts
+                // Add to SignalR group
                 await Groups.AddToGroupAsync(Context.ConnectionId, webinarId.ToString());
                 
+                // Get user information for logging and welcome message
+                var currentUser = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                
                 // Get real-time counts from active connections
-                var viewers = _db.Participants.Count(x => x.WebinarId == webinarId && x.Role == "viewer");
-                var hosts = _db.Participants.Count(x => x.WebinarId == webinarId && x.Role == "host");
+                var viewers = await _db.Participants.CountAsync(x => x.WebinarId == webinarId && x.Role == "viewer" && x.IsActive);
+                var hosts = await _db.Participants.CountAsync(x => x.WebinarId == webinarId && x.Role == "host" && x.IsActive);
                 var totalParticipants = viewers + hosts;
                 
-                Console.WriteLine($"User {user.Name} ({user.Mobile}) connected as {role} to webinar {webinarId}. Current counts: {viewers} viewers, {totalParticipants} total");
+                if (currentUser != null)
+                {
+                    Console.WriteLine($"User {currentUser.Name} ({currentUser.Mobile}) connected as {role} to webinar {webinarId}. Current counts: {viewers} viewers, {totalParticipants} total");
+                    
+                    // Welcome message to the newly connected user
+                    await Clients.Caller.SendAsync("Connected", $"Welcome {currentUser.Name}! You joined as {role}. Current viewer count: {viewers}");
+                }
+                else
+                {
+                    Console.WriteLine($"UserId {userId} connected as {role} to webinar {webinarId}. Current counts: {viewers} viewers, {totalParticipants} total");
+                    await Clients.Caller.SendAsync("Connected", $"Welcome! You joined as {role}. Current viewer count: {viewers}");
+                }
                 
                 // Broadcast to all participants in the webinar
                 await Clients.Group(webinarId.ToString()).SendAsync("CountsUpdated", viewers, totalParticipants);
-                
-                // Welcome message to the newly connected user
-                await Clients.Caller.SendAsync("Connected", $"Welcome {user.Name}! You joined as {role}. Current viewer count: {viewers}");
             }
             else
             {
@@ -100,7 +168,7 @@ public class WebinarHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var participant = _db.Participants.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
+        var participant = await _db.Participants.FirstOrDefaultAsync(p => p.ConnectionId == Context.ConnectionId);
         if (participant != null)
         {
             var webinarId = participant.WebinarId;
@@ -108,21 +176,36 @@ public class WebinarHub : Hub
             var role = participant.Role;
             
             // Get user info for logging
-            var user = _db.Users.FirstOrDefault(u => u.Id == userId);
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
             var userName = user?.Name ?? "Unknown";
             
             Console.WriteLine($"User {userName} (ID: {userId}, {role}) disconnecting from webinar {webinarId}. Reason: {exception?.Message ?? "Normal disconnect"}");
             
-            // Remove participant from database
-            _db.Participants.Remove(participant);
+            // Check if this is a forced disconnect (user connecting from another location)
+            // In that case, we mark as inactive instead of removing completely
+            bool isForcedDisconnect = exception?.Message?.Contains("ForceDisconnect") == true;
+            
+            if (isForcedDisconnect)
+            {
+                // Mark as inactive but keep record for session tracking
+                participant.IsActive = false;
+                participant.LastActiveAt = DateTime.UtcNow;
+                Console.WriteLine($"Marking participant as inactive due to connection from different location");
+            }
+            else
+            {
+                // Normal disconnect - remove participant completely
+                _db.Participants.Remove(participant);
+            }
+            
             await _db.SaveChangesAsync();
             
             // Remove from SignalR group
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, webinarId.ToString());
             
-            // Send updated counts to remaining participants
-            var viewers = _db.Participants.Count(x => x.WebinarId == webinarId && x.Role == "viewer");
-            var hosts = _db.Participants.Count(x => x.WebinarId == webinarId && x.Role == "host");
+            // Send updated counts to remaining participants (only count active participants)
+            var viewers = await _db.Participants.CountAsync(x => x.WebinarId == webinarId && x.Role == "viewer" && x.IsActive);
+            var hosts = await _db.Participants.CountAsync(x => x.WebinarId == webinarId && x.Role == "host" && x.IsActive);
             var totalParticipants = viewers + hosts;
             
             Console.WriteLine($"After disconnect: {viewers} viewers, {totalParticipants} total participants remain in webinar {webinarId}");
