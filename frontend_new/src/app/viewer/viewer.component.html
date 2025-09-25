@@ -39,7 +39,7 @@
           <div class="controls">
             <button class="control-btn" (click)="incrementViewerCount()">👍 Like</button>
             <button class="control-btn" (click)="resetViewerCount()">👎 Dislike</button>
-            @if (!toggleChat()) {
+            @if (!showChat()) {
             <button class="control-btn toggle-chat-btn" (click)="toggleChat()">Show Chat</button>
             }
 
