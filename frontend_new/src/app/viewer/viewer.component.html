@@ -5,9 +5,9 @@
     <button class="control-btn" (click)="incrementViewerCount()">👍 Like</button>
     <button class="control-btn" (click)="clearUserId()">🗑️ Clear User ID</button>
     <button class="control-btn" (click)="testOfflineMode()">📱 Test Offline</button>
-    
+
     <div style="flex:1"></div>
-    
+
     <!-- Status indicators -->
     <div class="status-group">
       <div class="badge">
@@ -17,13 +17,13 @@
       <div class="small connection-status"
         [style.color]="connectionStatus() === 'Connected' ? 'green' : connectionStatus() === 'Offline' ? 'orange' : connectionStatus() === 'Reconnecting...' ? 'blue' : 'gray'">
         @if (connectionStatus() === 'Connected') {
-          🟢 Live
+        🟢 Live
         } @else if (connectionStatus() === 'Offline') {
-          🟠 Offline Mode
+        🟠 Offline Mode
         } @else if (connectionStatus() === 'Reconnecting...') {
-          🔵 Connecting...
+        🔵 Connecting...
         } @else {
-          ⚪ {{ connectionStatus() }}
+        ⚪ {{ connectionStatus() }}
         }
       </div>
       <div class="small">Live • <span id="liveTimer">{{ liveTimer() | date:'mm:ss' }}</span></div>
@@ -32,7 +32,7 @@
 
   <!-- Main Content Area: 70% Video + 30% Chat -->
   <div class="content-area">
-    
+
     <!-- Left Side: Live Streaming (70%) -->
     <div class="video-section">
       <!-- Event header -->
@@ -66,45 +66,36 @@
         <h3>Live Chat</h3>
         <div class="chat-stats">{{ chatMessages().length }} messages</div>
       </div>
-      
+
       <div class="chat-messages" #chatContainer>
         @for (message of chatMessages(); track message.id) {
-          <div class="chat-message" [class.own-message]="message.userId === userId">
-            <div class="message-header">
-              <span class="username">{{ message.username }}</span>
-              <span class="timestamp">{{ message.timestamp | date:'HH:mm' }}</span>
-            </div>
-            <div class="message-content">{{ message.message }}</div>
+        <div class="chat-message" [class.own-message]="message.userId === userId">
+          <div class="message-header">
+            <span class="username">{{ message.username }}</span>
+            <span class="timestamp">{{ message.timestamp | date:'HH:mm' }}</span>
           </div>
+          <div class="message-content">{{ message.message }}</div>
+        </div>
         }
-        
+
         @if (chatMessages().length === 0) {
-          <div class="no-messages">
-            <p>💬 No messages yet. Start the conversation!</p>
-          </div>
+        <div class="no-messages">
+          <p>💬 No messages yet. Start the conversation!</p>
+        </div>
         }
       </div>
-      
+
       <div class="chat-input">
-        <input 
-          type="text" 
-          placeholder="Type your message..." 
-          [value]="currentMessage()"
-          (input)="updateCurrentMessage($event)"
-          (keypress)="onChatKeyPress($event)"
-          [disabled]="chatInputDisabled()"
-          class="message-input"
-        />
-        <button 
-          (click)="sendChatMessage()" 
-          [disabled]="!currentMessage().trim() || chatInputDisabled()"
-          class="send-btn"
-        >
+        <input type="text" placeholder="Type your message..." [value]="currentMessage()"
+          (input)="updateCurrentMessage($event)" (keypress)="onChatKeyPress($event)" [disabled]="chatInputDisabled()"
+          class="message-input" />
+        <button (click)="sendChatMessage()" [disabled]="!currentMessage().trim() || chatInputDisabled()"
+          class="send-btn">
           Send
         </button>
       </div>
     </div>
-    
+
   </div>
 
   <!-- Host controls (minimize/maximize) with participants visible only to host -->
@@ -120,7 +111,7 @@
         <h4>Host Controls</h4>
         <p>Participants: {{ participants() }}</p>
         <p>Broadcast Status: {{ hostBroadcastStatus() }}</p>
-        
+
         <label>Push Quick Message</label>
         <div class="form-row">
           <input id="quickMsg" placeholder="Type message to show to all viewers" />
@@ -137,5 +128,4 @@
     </div>
     }
   </div>
-
 </div>
