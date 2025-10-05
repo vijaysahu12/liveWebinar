@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using liveWebinar.Services;
 using liveWebinar.Data;
 using liveWebinar.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace liveWebinar.Controllers;
 
@@ -9,6 +10,7 @@ public class ViewerLoginRequest
 {
     public string Mobile { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
     public bool ForceLogout { get; set; } = false;
 }
 
@@ -49,7 +51,7 @@ public class AuthController : ControllerBase
             if (existingUser != null)
             {
                 var existingConnection = _context.Participants
-                    .FirstOrDefault(p => p.UserId == existingUser.Id && p.Role == "viewer");
+                    .FirstOrDefault(p => p.UserId == existingUser.Id);
 
                 if (existingConnection != null && !request.ForceLogout)
                 {
@@ -93,6 +95,8 @@ public class AuthController : ControllerBase
                 {
                     Name = request.Name,
                     Mobile = request.Mobile,
+                    Email = request.Email,
+                    UserRoleType = UserRole.Guest, // Default role
                     CreatedAt = DateTime.UtcNow,
                     LastLoginAt = DateTime.UtcNow,
                     IsActive = true
@@ -104,14 +108,23 @@ public class AuthController : ControllerBase
                 // Generate JWT token
                 var token = _authService.GenerateJwtToken(newUser.Id.ToString(), "viewer", "");
 
-                return Ok(new
+                return Ok(new LoginResponse
                 {
-                    success = true,
-                    token = token,
-                    userId = newUser.Id,
-                    name = newUser.Name,
-                    mobile = newUser.Mobile,
-                    message = "Registration and login successful"
+                    Success = true,
+                    Token = token,
+                    User = new UserDto
+                    {
+                        UserId = newUser.Id,
+                        Name = newUser.Name,
+                        Mobile = newUser.Mobile,
+                        Email = newUser.Email,
+                        Role = newUser.UserRoleType,
+                        IsEmailVerified = newUser.IsEmailVerified,
+                        IsMobileVerified = newUser.IsMobileVerified,
+                        CreatedAt = newUser.CreatedAt,
+                        LastLoginAt = newUser.LastLoginAt
+                    },
+                    Message = "Registration and login successful"
                 });
             }
         }
@@ -122,14 +135,174 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    {
+        try
+        {
+            // Validate input
+            if (string.IsNullOrWhiteSpace(request.Mobile))
+            {
+                return BadRequest(new LoginResponse 
+                { 
+                    Success = false, 
+                    Message = "Mobile number is required" 
+                });
+            }
+
+            // Validate mobile number format (10 digits)
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Mobile, @"^\d{10}$"))
+            {
+                return BadRequest(new LoginResponse 
+                { 
+                    Success = false, 
+                    Message = "Please enter a valid 10-digit mobile number" 
+                });
+            }
+
+            // Find existing user
+            var user = await _context.Users
+                .Include(u => u.Subscriptions)
+                .FirstOrDefaultAsync(u => u.Mobile == request.Mobile);
+
+            if (user != null)
+            {
+                // Update user info
+                user.LastLoginAt = DateTime.UtcNow;
+                if (!string.IsNullOrWhiteSpace(request.Name))
+                    user.Name = request.Name;
+                if (!string.IsNullOrWhiteSpace(request.Email))
+                    user.Email = request.Email;
+                
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                // Create new user
+                user = new User
+                {
+                    Name = request.Name,
+                    Mobile = request.Mobile,
+                    Email = request.Email,
+                    UserRoleType = UserRole.Guest,
+                    CreatedAt = DateTime.UtcNow,
+                    LastLoginAt = DateTime.UtcNow,
+                    IsActive = true
+                };
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+            }
+
+            // Generate JWT token
+            var token = _authService.GenerateJwtToken(user.Id.ToString(), user.UserRoleType.ToString().ToLower(), "");
+
+            return Ok(new LoginResponse
+            {
+                Success = true,
+                Token = token,
+                User = new UserDto
+                {
+                    UserId = user.Id,
+                    Name = user.Name,
+                    Mobile = user.Mobile,
+                    Email = user.Email,
+                    Role = user.UserRoleType,
+                    IsEmailVerified = user.IsEmailVerified,
+                    IsMobileVerified = user.IsMobileVerified,
+                    CreatedAt = user.CreatedAt,
+                    LastLoginAt = user.LastLoginAt
+                },
+                Message = "Login successful"
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Login error: {ex.Message}");
+            return StatusCode(500, new LoginResponse 
+            { 
+                Success = false, 
+                Message = "Server error occurred" 
+            });
+        }
+    }
+
+    [HttpPost("promote-to-host")]
+    public async Task<IActionResult> PromoteToHost([FromQuery] long userId, [FromQuery] long adminUserId)
+    {
+        try
+        {
+            var admin = await _context.Users.FindAsync(adminUserId);
+            if (admin == null || admin.UserRoleType != UserRole.Admin)
+                return Forbid("Only admins can promote users to host");
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+                return NotFound("User not found");
+
+            user.UserRoleType = UserRole.Host;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "User promoted to host successfully" });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Promote to host error: {ex.Message}");
+            return StatusCode(500, new { success = false, message = "Server error occurred" });
+        }
+    }
+
+    [HttpPost("subscribe")]
+    public async Task<IActionResult> Subscribe([FromBody] SubscriptionRequest request, [FromQuery] long userId)
+    {
+        try
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+                return NotFound("User not found");
+
+            // Deactivate existing subscriptions
+            var existingSubscriptions = _context.UserSubscriptions
+                .Where(s => s.UserId == userId && s.IsActive);
+            
+            foreach (var sub in existingSubscriptions)
+            {
+                sub.IsActive = false;
+            }
+
+            // Create new subscription
+            var subscription = new UserSubscription
+            {
+                UserId = userId,
+                Type = request.Type,
+                StartDate = DateTime.UtcNow,
+                EndDate = request.EndDate,
+                AmountPaid = request.AmountPaid,
+                PaymentTransactionId = request.PaymentTransactionId ?? string.Empty,
+                IsActive = true
+            };
+
+            _context.UserSubscriptions.Add(subscription);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "Subscription created successfully" });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Subscribe error: {ex.Message}");
+            return StatusCode(500, new { success = false, message = "Server error occurred" });
+        }
+    }
+
     [HttpPost("generate-host-token")]
     public IActionResult GenerateHostToken([FromBody] GenerateTokenRequest request)
     {
         // Validate that the user is actually a host for this webinar
         var participant = _context.Participants
+            .Include(p => p.User)
             .FirstOrDefault(p => p.WebinarId == request.WebinarId && 
                                p.UserId == request.UserId && 
-                               p.Role == "host");
+                               (p.User.UserRoleType == UserRole.Host || p.User.UserRoleType == UserRole.Admin));
 
         if (participant == null)
         {

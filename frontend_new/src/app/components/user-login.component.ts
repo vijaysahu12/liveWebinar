@@ -1,7 +1,8 @@
 import { Component, EventEmitter, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { UserService, LoginRequest } from '../services/user.service';
+import { UserService } from '../services/user.service';
+import { ViewerLoginRequest } from '../models/user.models';
 
 @Component({
   selector: 'app-user-login',
@@ -248,9 +249,10 @@ import { UserService, LoginRequest } from '../services/user.service';
 export class UserLoginComponent {
   @Output() loginSuccess = new EventEmitter<void>();
 
-  loginData: LoginRequest = {
+  loginData: ViewerLoginRequest = {
     name: '',
-    mobile: ''
+    mobile: '',
+    email: ''
   };
 
   isLoading = signal(false);

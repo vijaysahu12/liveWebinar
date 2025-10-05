@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using liveWebinar.Hubs;
 using liveWebinar.Data;
+using liveWebinar.Models;
 using liveWebinar.Services;
 
 namespace liveWebinar.Controllers
@@ -40,9 +42,10 @@ namespace liveWebinar.Controllers
 
             // Check if user is a host for this webinar
             var participant = _context.Participants
+                .Include(p => p.User)
                 .FirstOrDefault(p => p.WebinarId == webinarId && 
                                    p.UserId == userId && 
-                                   p.Role == "host");
+                                   (p.User.UserRoleType == UserRole.Host || p.User.UserRoleType == UserRole.Admin));
 
             if (participant == null)
             {

@@ -49,33 +49,50 @@ export class App implements OnInit {
   private checkAuthenticationStatus() {
     try {
       const userData = localStorage.getItem('liveWebinar-user');
+      const token = localStorage.getItem('liveWebinar-token');
       
       console.log('🔍 Raw localStorage data:', userData);
+      console.log('🔍 Token exists:', !!token);
       
       if (userData) {
         const user = JSON.parse(userData);
         
         console.log('🔍 Parsed user data:', user);
-        console.log('🔍 User has token:', !!user.token);
-        console.log('🔍 User expiresAt:', user.expiresAt);
-        console.log('🔍 Current time:', new Date().getTime());
-        console.log('🔍 Is expired?', new Date().getTime() >= user.expiresAt);
+        console.log('🔍 User has token in object:', !!user.token);
+        console.log('🔍 User has required fields:', !!(user.userId && user.name && user.mobile));
         
-        // Check if user data has required fields and if token hasn't expired
-        if (user.token && user.expiresAt && new Date().getTime() < user.expiresAt) {
-          const timeLeft = user.expiresAt - new Date().getTime();
-          const minutesLeft = Math.floor(timeLeft / (1000 * 60));
-          
-          console.log('✅ Valid session found for user:', user.name, user.mobile);
-          console.log('🕐 Session expires in:', minutesLeft, 'minutes');
-          console.log('📊 User ID:', user.userId);
-          this.showLogin.set(false);
-        } else {
-          console.log('❌ Session expired or invalid, requiring re-login');
-          console.log('Current time:', new Date().toLocaleString());
+        // Check if user data has required fields (userId, name, mobile)
+        // For backward compatibility, accept either token in localStorage or in user object
+        const hasValidToken = token || user.token;
+        const hasRequiredFields = user.userId && user.name && user.mobile;
+        
+        if (hasValidToken && hasRequiredFields) {
+          // Check expiration if available
           if (user.expiresAt) {
-            console.log('Expiry time:', new Date(user.expiresAt).toLocaleString());
+            const timeLeft = user.expiresAt - new Date().getTime();
+            const minutesLeft = Math.floor(timeLeft / (1000 * 60));
+            
+            if (timeLeft > 0) {
+              console.log('✅ Valid session found for user:', user.name, user.mobile);
+              console.log('🕐 Session expires in:', minutesLeft, 'minutes');
+              console.log('📊 User ID:', user.userId);
+              this.showLogin.set(false);
+            } else {
+              console.log('❌ Session expired, requiring re-login');
+              console.log('Current time:', new Date().toLocaleString());
+              console.log('Expiry time:', new Date(user.expiresAt).toLocaleString());
+              this.clearUserData();
+            }
+          } else {
+            // No expiration time set, assume valid (for backward compatibility)
+            console.log('✅ Valid session found for user (no expiration):', user.name, user.mobile);
+            console.log('📊 User ID:', user.userId);
+            this.showLogin.set(false);
           }
+        } else {
+          console.log('❌ Invalid session data, missing required fields or token');
+          console.log('Has token:', !!hasValidToken);
+          console.log('Has required fields:', hasRequiredFields);
           this.clearUserData();
         }
       } else {
@@ -93,6 +110,7 @@ export class App implements OnInit {
   private clearUserData() {
     if (isPlatformBrowser(this.platformId)) {
       localStorage.removeItem('liveWebinar-user');
+      localStorage.removeItem('liveWebinar-token');
     }
     this.showLogin.set(true);
   }
@@ -107,13 +125,17 @@ export class App implements OnInit {
 
     try {
       const userData = localStorage.getItem('liveWebinar-user');
+      const token = localStorage.getItem('liveWebinar-token');
       
       if (userData) {
         const user = JSON.parse(userData);
         
-        // Check if session has expired
-        if (!user.expiresAt || new Date().getTime() >= user.expiresAt) {
+        // Check if session has expired (only if expiration is set)
+        if (user.expiresAt && new Date().getTime() >= user.expiresAt) {
           console.log('⏰ Session expired during use, redirecting to login');
+          this.clearUserData();
+        } else if (!token && !user.token) {
+          console.log('⚠️ No authentication token found, redirecting to login');
           this.clearUserData();
         }
       }

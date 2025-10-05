@@ -27,8 +27,13 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
 
-// SignalR
-builder.Services.AddSignalR();
+// SignalR with WebSocket configuration
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+});
 
 
 // CORS (allow your Angular app origin)
@@ -44,6 +49,8 @@ policy.WithOrigins("http://localhost:4200")
 
 var app = builder.Build();
 
+// Enable WebSocket support
+app.UseWebSockets();
 
 if (app.Environment.IsDevelopment()){
 app.UseSwagger();

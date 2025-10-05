@@ -24,13 +24,21 @@ export class SignalrService {
 
 
     startConnection(webinarId: string, userId: string, role: string = 'viewer') {
-        const connectionUrl = `http://localhost:5021/hubs/webinar?webinarId=${webinarId}&userId=${userId}&role=${role}`;
+        // Use protocol-relative URL or check current protocol
+        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+        const baseUrl = `${protocol}//localhost:5021`;
+        const connectionUrl = `${baseUrl}/hubs/webinar?webinarId=${webinarId}&userId=${userId}&role=${role}`;
         console.log('🔗 Attempting to connect to:', connectionUrl);
         
         this.hubConnection = new signalR.HubConnectionBuilder()
             .withUrl(connectionUrl, { 
-                skipNegotiation: true, 
-                transport: signalR.HttpTransportType.WebSockets 
+                skipNegotiation: false, // Allow negotiation for transport fallback
+                transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents,
+                accessTokenFactory: () => {
+                    // Add token if available
+                    const token = localStorage.getItem('liveWebinar-token');
+                    return token || '';
+                }
             })
             .withAutomaticReconnect([0, 2000, 10000, 30000])
             .configureLogging(signalR.LogLevel.Information)
@@ -39,13 +47,19 @@ export class SignalrService {
         this.hubConnection.start().then(() => {
             console.log('✅ SignalR connected successfully to webinar:', webinarId);
             console.log('Connection ID:', this.hubConnection?.connectionId);
+            console.log('Connection state:', this.hubConnection?.state);
             this.connectionStatus$.next('Connected');
             this.registerHandlers();
             // Request initial viewer count
             this.getViewerCount(webinarId);
         }).catch(err => {
-            // Log error to console for debugging, but don't show error to user
-            console.error('❌ SignalR connection failed (server may be unavailable):', err);
+            // Log detailed error information
+            console.error('❌ SignalR connection failed:', err);
+            console.error('Error details:', {
+                message: err.message,
+                stack: err.stack,
+                url: connectionUrl
+            });
             console.warn('⚠️ Running in offline mode - UI will display without live data');
             
             // Set a neutral status that won't show error messages to user

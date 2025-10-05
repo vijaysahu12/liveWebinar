@@ -22,6 +22,12 @@ public class AppDbContext : DbContext
     public DbSet<UserInteraction> UserInteractions { get; set; }
     public DbSet<Question> Questions { get; set; }
     public DbSet<QuestionAnswer> QuestionAnswers { get; set; }
+    
+    // User Management and Webinar Scheduling
+    public DbSet<WebinarSchedule> WebinarSchedules { get; set; }
+    public DbSet<WebinarRegistration> WebinarRegistrations { get; set; }
+    public DbSet<WebinarAccess> WebinarAccesses { get; set; }
+    public DbSet<UserSubscription> UserSubscriptions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -168,6 +174,66 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.AnsweredByUserId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Configure WebinarSchedule entity
+        modelBuilder.Entity<WebinarSchedule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.ThumbnailUrl).HasMaxLength(500);
+            entity.Property(e => e.StreamUrl).HasMaxLength(500);
+            entity.Property(e => e.Price).HasColumnType("decimal(18,2)");
+            entity.HasOne(e => e.Host)
+                  .WithMany(u => u.HostedWebinars)
+                  .HasForeignKey(e => e.HostUserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(e => e.Registrations)
+                  .WithOne(r => r.Webinar)
+                  .HasForeignKey(r => r.WebinarId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(e => e.AccessLogs)
+                  .WithOne(a => a.Webinar)
+                  .HasForeignKey(a => a.WebinarId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure WebinarRegistration entity
+        modelBuilder.Entity<WebinarRegistration>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AmountPaid).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PaymentTransactionId).HasMaxLength(100);
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.Registrations)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.WebinarId, e.UserId }).IsUnique();
+        });
+
+        // Configure WebinarAccess entity
+        modelBuilder.Entity<WebinarAccess>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.AccessLogs)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Configure UserSubscription entity
+        modelBuilder.Entity<UserSubscription>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AmountPaid).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PaymentTransactionId).HasMaxLength(100);
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.Subscriptions)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         base.OnModelCreating(modelBuilder);

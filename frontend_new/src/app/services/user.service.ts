@@ -1,6 +1,19 @@
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { 
+  LoginRequest, 
+  LoginResponse, 
+  UserDto, 
+  DashboardResponse, 
+  CreateWebinarRequest, 
+  WebinarRegistrationRequest, 
+  SubscriptionRequest, 
+  WebinarAccessResponse,
+  WebinarScheduleDto,
+  ViewerLoginRequest
+} from '../models/user.models';
 
 export interface UserProfile {
   mobile: string;
@@ -11,12 +24,13 @@ export interface UserProfile {
   expiresAt: number;
 }
 
-export interface LoginRequest {
+// Legacy interface for backward compatibility
+export interface LegacyLoginRequest {
   mobile: string;
   name: string;
 }
 
-export interface LoginResponse {
+export interface LegacyLoginResponse {
   success: boolean;
   message: string;
   token?: string;
@@ -36,7 +50,12 @@ export class UserService {
   private userSubject = new BehaviorSubject<UserProfile | null>(null);
   public user$ = this.userSubject.asObservable();
 
-  constructor(@Inject(PLATFORM_ID) private platformId: Object) {
+  private apiUrl = 'http://localhost:5021/api';
+
+  constructor(
+    @Inject(PLATFORM_ID) private platformId: Object,
+    private http: HttpClient
+  ) {
     if (isPlatformBrowser(this.platformId)) {
       this.loadUserFromStorage();
     }
@@ -84,7 +103,7 @@ export class UserService {
     this.userSubject.next(null);
   }
 
-  async loginUser(loginData: LoginRequest): Promise<LoginResponse> {
+  async loginUser(loginData: ViewerLoginRequest): Promise<LegacyLoginResponse> {
     try {
       const response = await fetch('http://localhost:5021/api/auth/login-viewer', {
         method: 'POST',
@@ -94,7 +113,7 @@ export class UserService {
         body: JSON.stringify(loginData)
       });
 
-      const result: LoginResponse = await response.json();
+      const result: LegacyLoginResponse = await response.json();
 
       console.log('🔍 Raw backend response:', result);
 
@@ -160,6 +179,90 @@ export class UserService {
       user.expiresAt = Date.now() + this.TOKEN_LIFETIME;
       this.saveUserToStorage(user);
       this.userSubject.next(user);
+    }
+  }
+
+  // New API methods for webinar management
+
+  async login(loginData: LoginRequest): Promise<LoginResponse> {
+    try {
+      const response = await this.http.post<LoginResponse>(`${this.apiUrl}/auth/login`, loginData).toPromise();
+      return response || { success: false, message: 'No response from server' };
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw new Error(error.error?.message || 'Login failed');
+    }
+  }
+
+  async getUserDashboard(userId: number): Promise<DashboardResponse> {
+    try {
+      const response = await this.http.get<DashboardResponse>(`${this.apiUrl}/webinar/dashboard/${userId}`).toPromise();
+      if (!response) throw new Error('No response from server');
+      return response;
+    } catch (error: any) {
+      console.error('Dashboard error:', error);
+      throw new Error(error.error?.message || 'Failed to load dashboard');
+    }
+  }
+
+  async getUpcomingWebinars(): Promise<WebinarScheduleDto[]> {
+    try {
+      const response = await this.http.get<WebinarScheduleDto[]>(`${this.apiUrl}/webinar/upcoming`).toPromise();
+      return response || [];
+    } catch (error: any) {
+      console.error('Get webinars error:', error);
+      throw new Error(error.error?.message || 'Failed to load webinars');
+    }
+  }
+
+  async createWebinar(webinarData: CreateWebinarRequest, hostUserId: number): Promise<any> {
+    try {
+      const response = await this.http.post(`${this.apiUrl}/webinar/create?hostUserId=${hostUserId}`, webinarData).toPromise();
+      return response;
+    } catch (error: any) {
+      console.error('Create webinar error:', error);
+      throw new Error(error.error?.message || 'Failed to create webinar');
+    }
+  }
+
+  async registerForWebinar(registrationData: WebinarRegistrationRequest, userId: number): Promise<any> {
+    try {
+      const response = await this.http.post(`${this.apiUrl}/webinar/register?userId=${userId}`, registrationData).toPromise();
+      return response;
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      throw new Error(error.error?.message || 'Failed to register for webinar');
+    }
+  }
+
+  async checkWebinarAccess(webinarId: number, userId: number): Promise<WebinarAccessResponse> {
+    try {
+      const response = await this.http.get<WebinarAccessResponse>(`${this.apiUrl}/webinar/access/${webinarId}?userId=${userId}`).toPromise();
+      if (!response) throw new Error('No response from server');
+      return response;
+    } catch (error: any) {
+      console.error('Access check error:', error);
+      throw new Error(error.error?.message || 'Failed to check webinar access');
+    }
+  }
+
+  async promoteToHost(userId: number, adminUserId: number): Promise<any> {
+    try {
+      const response = await this.http.post(`${this.apiUrl}/auth/promote-to-host?userId=${userId}&adminUserId=${adminUserId}`, {}).toPromise();
+      return response;
+    } catch (error: any) {
+      console.error('Promote to host error:', error);
+      throw new Error(error.error?.message || 'Failed to promote user to host');
+    }
+  }
+
+  async subscribe(subscriptionData: SubscriptionRequest, userId: number): Promise<any> {
+    try {
+      const response = await this.http.post(`${this.apiUrl}/auth/subscribe?userId=${userId}`, subscriptionData).toPromise();
+      return response;
+    } catch (error: any) {
+      console.error('Subscribe error:', error);
+      throw new Error(error.error?.message || 'Failed to create subscription');
     }
   }
 }

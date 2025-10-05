@@ -14,6 +14,15 @@ public class User
     public string? State { get; set; }
     public string? Country { get; set; }
     
+    // Role Management
+    public UserRole UserRoleType { get; set; } = UserRole.Guest;
+    public bool IsEmailVerified { get; set; } = false;
+    public bool IsMobileVerified { get; set; } = false;
+    
     // Navigation properties
     public virtual ICollection<Participant> Participations { get; set; } = new List<Participant>();
+    public virtual ICollection<WebinarSchedule> HostedWebinars { get; set; } = new List<WebinarSchedule>();
+    public virtual ICollection<WebinarRegistration> Registrations { get; set; } = new List<WebinarRegistration>();
+    public virtual ICollection<WebinarAccess> AccessLogs { get; set; } = new List<WebinarAccess>();
+    public virtual ICollection<UserSubscription> Subscriptions { get; set; } = new List<UserSubscription>();
 }

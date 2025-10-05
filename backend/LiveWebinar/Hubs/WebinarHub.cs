@@ -98,7 +98,6 @@ public class WebinarHub : Hub
                         ConnectedAt = DateTime.UtcNow,
                         LastActiveAt = DateTime.UtcNow,
                         ConnectionId = Context.ConnectionId, 
-                        Role = role,
                         IpAddress = clientIp,
                         UserAgent = userAgent,
                         IsActive = true
@@ -129,9 +128,17 @@ public class WebinarHub : Hub
                 // Get user information for logging and welcome message
                 var currentUser = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
                 
-                // Get real-time counts from active connections
-                var viewers = await _db.Participants.CountAsync(x => x.WebinarId == webinarId && x.Role == "viewer" && x.IsActive);
-                var hosts = await _db.Participants.CountAsync(x => x.WebinarId == webinarId && x.Role == "host" && x.IsActive);
+                // Get real-time counts from active connections based on user roles
+                var viewers = await _db.Participants
+                    .Include(x => x.User)
+                    .CountAsync(x => x.WebinarId == webinarId && 
+                                x.User.UserRoleType == UserRole.Guest && 
+                                x.IsActive);
+                var hosts = await _db.Participants
+                    .Include(x => x.User)
+                    .CountAsync(x => x.WebinarId == webinarId && 
+                               (x.User.UserRoleType == UserRole.Host || x.User.UserRoleType == UserRole.Admin) && 
+                               x.IsActive);
                 var totalParticipants = viewers + hosts;
                 
                 if (currentUser != null)
@@ -172,11 +179,11 @@ public class WebinarHub : Hub
         {
             var webinarId = participant.WebinarId;
             var userId = participant.UserId;
-            var role = participant.Role;
             
             // Get user info for logging
             var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
             var userName = user?.Name ?? "Unknown";
+            var role = user?.UserRoleType == UserRole.Host || user?.UserRoleType == UserRole.Admin ? "host" : "viewer";
             
             Console.WriteLine($"User {userName} (ID: {userId}, {role}) disconnecting from webinar {webinarId}. Reason: {exception?.Message ?? "Normal disconnect"}");
             
@@ -203,8 +210,16 @@ public class WebinarHub : Hub
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, webinarId.ToString());
             
             // Send updated counts to remaining participants (only count active participants)
-            var viewers = await _db.Participants.CountAsync(x => x.WebinarId == webinarId && x.Role == "viewer" && x.IsActive);
-            var hosts = await _db.Participants.CountAsync(x => x.WebinarId == webinarId && x.Role == "host" && x.IsActive);
+            var viewers = await _db.Participants
+                .Include(x => x.User)
+                .CountAsync(x => x.WebinarId == webinarId && 
+                            x.User.UserRoleType == UserRole.Guest && 
+                            x.IsActive);
+            var hosts = await _db.Participants
+                .Include(x => x.User)
+                .CountAsync(x => x.WebinarId == webinarId && 
+                           (x.User.UserRoleType == UserRole.Host || x.User.UserRoleType == UserRole.Admin) && 
+                           x.IsActive);
             var totalParticipants = viewers + hosts;
             
             Console.WriteLine($"After disconnect: {viewers} viewers, {totalParticipants} total participants remain in webinar {webinarId}");
@@ -234,8 +249,13 @@ public class WebinarHub : Hub
     {
         if (long.TryParse(webinarId, out long webinarIdLong))
         {
-            var viewers = _db.Participants.Count(x => x.WebinarId == webinarIdLong && x.Role == "viewer");
-            var hosts = _db.Participants.Count(x => x.WebinarId == webinarIdLong && x.Role == "host");
+            var viewers = _db.Participants
+                .Include(x => x.User)
+                .Count(x => x.WebinarId == webinarIdLong && x.User.UserRoleType == UserRole.Guest);
+            var hosts = _db.Participants
+                .Include(x => x.User)
+                .Count(x => x.WebinarId == webinarIdLong && 
+                       (x.User.UserRoleType == UserRole.Host || x.User.UserRoleType == UserRole.Admin));
             var totalParticipants = viewers + hosts;
             
             // Log current participants for debugging
@@ -243,7 +263,8 @@ public class WebinarHub : Hub
             Console.WriteLine($"Current participants in webinar {webinarIdLong}:");
             foreach (var p in allParticipants)
             {
-                Console.WriteLine($"  - User: {p.User?.Name ?? "Unknown"} ({p.User?.Mobile ?? "N/A"}), Role: {p.Role}, ConnectedAt: {p.ConnectedAt}");
+                var role = p.User?.UserRoleType == UserRole.Host || p.User?.UserRoleType == UserRole.Admin ? "host" : "viewer";
+                Console.WriteLine($"  - User: {p.User?.Name ?? "Unknown"} ({p.User?.Mobile ?? "N/A"}), Role: {role}, ConnectedAt: {p.ConnectedAt}");
             }
             
             await Clients.Caller.SendAsync("CountsUpdated", viewers, totalParticipants);
@@ -272,8 +293,13 @@ public class WebinarHub : Hub
             await _db.SaveChangesAsync();
             
             // Update counts for remaining participants
-            var viewers = _db.Participants.Count(x => x.WebinarId == webinarIdLong && x.Role == "viewer");
-            var hosts = _db.Participants.Count(x => x.WebinarId == webinarIdLong && x.Role == "host");
+            var viewers = _db.Participants
+                .Include(x => x.User)
+                .Count(x => x.WebinarId == webinarIdLong && x.User.UserRoleType == UserRole.Guest);
+            var hosts = _db.Participants
+                .Include(x => x.User)
+                .Count(x => x.WebinarId == webinarIdLong && 
+                       (x.User.UserRoleType == UserRole.Host || x.User.UserRoleType == UserRole.Admin));
             var totalParticipants = viewers + hosts;
             
             await Clients.Group(webinarId).SendAsync("CountsUpdated", viewers, totalParticipants);
@@ -328,7 +354,7 @@ public class WebinarHub : Hub
                 .Include(p => p.User)
                 .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webId && p.IsActive);
             
-            if (participant != null && participant.Role == "viewer")
+            if (participant != null && participant.User.UserRoleType == UserRole.Guest)
             {
                 var poll = new
                 {
@@ -392,7 +418,7 @@ public class WebinarHub : Hub
                 .Include(p => p.User)
                 .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webId && p.IsActive);
             
-            if (participant != null && participant.Role == "host")
+            if (participant != null && (participant.User.UserRoleType == UserRole.Host || participant.User.UserRoleType == UserRole.Admin))
             {
                 var engagementContent = new
                 {
@@ -477,7 +503,10 @@ public class WebinarHub : Hub
                 {
                     // Send only to hosts for private questions
                     var hosts = await _db.Participants
-                        .Where(p => p.WebinarId == webId && p.Role == "host" && p.IsActive)
+                        .Include(p => p.User)
+                        .Where(p => p.WebinarId == webId && 
+                               (p.User.UserRoleType == UserRole.Host || p.User.UserRoleType == UserRole.Admin) && 
+                               p.IsActive)
                         .Select(p => p.ConnectionId)
                         .ToListAsync();
                     
@@ -502,7 +531,7 @@ public class WebinarHub : Hub
                 .Include(p => p.User)
                 .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webId && p.IsActive);
             
-            if (participant != null && participant.Role == "host")
+            if (participant != null && (participant.User.UserRoleType == UserRole.Host || participant.User.UserRoleType == UserRole.Admin))
             {
                 var answer = new
                 {
