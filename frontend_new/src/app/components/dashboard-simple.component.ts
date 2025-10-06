@@ -1458,14 +1458,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
       
       // Add received message to local chat
       const receivedMessage: ChatMessage = {
-        id: Date.now().toString(),
+        id: chatData.id || Date.now().toString(),
         username: chatData.username || 'Unknown User',
         message: chatData.message || chatData.text || JSON.stringify(chatData),
         timestamp: new Date(chatData.timestamp || Date.now()),
         userId: chatData.userId || 'unknown'
       };
       
-      this.chatMessages.update(messages => [...messages, receivedMessage]);
+      // Check for duplicate messages by ID
+      const existingMessage = this.chatMessages().find(m => m.id === receivedMessage.id);
+      if (!existingMessage) {
+        this.chatMessages.update(messages => [...messages, receivedMessage]);
+        // Auto-scroll to bottom when new message is received
+        setTimeout(() => this.scrollToBottom(), 100);
+      } else {
+        console.log('⚠️ Duplicate message ignored:', receivedMessage.id);
+      }
     });
     
     // Monitor SignalR connection status
@@ -1562,11 +1570,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // Send message via SignalR to sync with other users
     if (this.signalrConnected()) {
       console.log('💬 Sending chat message via SignalR:', newMessage);
+      // Only send via SignalR - don't add locally (it will come back via SignalR)
       this.signalrService.sendChatMessage(this.webinarId, newMessage);
     } else {
       console.warn('⚠️ SignalR not connected, adding message locally only');
       // Add to local chat if SignalR is not connected
       this.chatMessages.update(messages => [...messages, newMessage]);
+      this.scrollToBottom();
     }
 
     this.currentMessage = '';
@@ -1577,6 +1587,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       this.sendChatMessage();
+    }
+  }
+
+  // Auto-scroll to bottom of chat messages
+  scrollToBottom() {
+    if (!isPlatformBrowser(this.platformId)) return;
+    
+    try {
+      const chatMessages = document.querySelector('.chat-messages');
+      if (chatMessages) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    } catch (error) {
+      console.log('⚠️ Could not scroll to bottom:', error);
     }
   }
 

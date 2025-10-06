@@ -1,8 +1,10 @@
-import { Component, OnInit, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, signal, Inject, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { UserService } from '../services/user.service';
+import { SignalrService } from '../services/signalr.service';
+import { Subscription } from 'rxjs';
 import { 
   DashboardResponse, 
   WebinarScheduleDto, 
@@ -131,7 +133,13 @@ interface ChatMessage {
                 <div class="chat-section">
                   <div class="chat-header">
                     <h3>Live Chat</h3>
-                    <div class="chat-stats">{{ chatMessages().length }} messages</div>
+                    <div class="chat-controls">
+                      <div class="chat-stats">{{ chatMessages().length }} messages</div>
+                      <div class="signalr-status" [class.connected]="signalrConnected()">
+                        {{ signalrConnected() ? '🟢 Connected' : '🔴 Disconnected' }}
+                      </div>
+                      <button class="test-btn" (click)="testSignalRConnection()">Test SignalR</button>
+                    </div>
                   </div>
 
                   <div class="chat-messages">
@@ -1673,9 +1681,41 @@ interface ChatMessage {
       font-size: 1.1rem;
     }
 
+    .chat-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: flex-end;
+    }
+
     .chat-stats {
       font-size: 0.875rem;
       color: #6b7280;
+    }
+
+    .signalr-status {
+      font-size: 0.75rem;
+      color: #ef4444;
+      font-weight: 600;
+    }
+
+    .signalr-status.connected {
+      color: #10b981;
+    }
+
+    .test-btn {
+      padding: 0.25rem 0.5rem;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .test-btn:hover {
+      background: #2563eb;
     }
 
     .chat-messages {
@@ -1685,6 +1725,7 @@ interface ChatMessage {
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
+      scroll-behavior: smooth;
     }
 
     .chat-message {
@@ -1792,7 +1833,7 @@ interface ChatMessage {
     }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   dashboard = signal<DashboardResponse | null>(null);
   loading = signal(true);
   error = signal('');
@@ -1812,6 +1853,11 @@ export class DashboardComponent implements OnInit {
   // Chat properties for guest view
   chatMessages = signal<ChatMessage[]>([]);
   currentMessage = '';
+  
+  // SignalR properties
+  signalrConnected = signal(false);
+  signalrSubscriptions: Subscription[] = [];
+  webinarId = '1'; // Default webinar ID for the live session
   
   newWebinar: CreateWebinarRequest = {
     title: '',
@@ -1843,11 +1889,17 @@ export class DashboardComponent implements OnInit {
 
   constructor(
     private userService: UserService,
-    private router: Router
+    private router: Router,
+    private signalrService: SignalrService,
+    @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
   async ngOnInit() {
     await this.loadDashboard();
+    // Initialize SignalR for guest users to enable real-time chat
+    if (this.isGuest()) {
+      this.initializeSignalR();
+    }
   }
 
   async loadDashboard() {
@@ -2161,9 +2213,86 @@ export class DashboardComponent implements OnInit {
     return role === UserRole.Guest;
   }
 
+  // Lifecycle method
+  ngOnDestroy() {
+    this.signalrSubscriptions.forEach(sub => sub.unsubscribe());
+    this.signalrService.disconnect();
+  }
+
+  // SignalR Methods
+  initializeSignalR() {
+    if (!isPlatformBrowser(this.platformId)) {
+      console.log('⚠️ Skipping SignalR initialization - not in browser environment');
+      return;
+    }
+
+    console.log('🔗 Initializing SignalR connection for chat...');
+    
+    // Start SignalR connection with user ID
+    const userId = this.getUserId() || this.generateGuestUserId();
+    this.signalrService.startConnection(this.webinarId, userId, 'guest');
+
+    // Subscribe to chat messages
+    const chatSub = this.signalrService.chatMessage$.subscribe((message: ChatMessage) => {
+      console.log('💬 Received chat message via SignalR:', message);
+      
+      // Check for duplicate messages by ID
+      const existingMessage = this.chatMessages().find(m => m.id === message.id);
+      if (!existingMessage) {
+        this.chatMessages.update(messages => [...messages, message]);
+        // Auto-scroll to bottom when new message is received
+        setTimeout(() => this.scrollToBottom(), 100);
+      } else {
+        console.log('⚠️ Duplicate message ignored:', message.id);
+      }
+    });
+
+    this.signalrSubscriptions.push(chatSub);
+
+    // Monitor connection status
+    const statusSub = this.signalrService.connectionStatus$.subscribe(status => {
+      console.log('🔗 SignalR connection status:', status);
+      this.signalrConnected.set(status === 'Connected');
+    });
+
+    this.signalrSubscriptions.push(statusSub);
+  }
+
+  generateGuestUserId(): string {
+    // Generate a unique guest user ID (use timestamp + random)
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000);
+    return `${900000000 + random}`;
+  }
+
+  testSignalRConnection() {
+    console.log('🔧 Testing SignalR connection...');
+    console.log('🔗 Connection state:', this.signalrConnected());
+    
+    if (this.signalrConnected()) {
+      const testMessage: ChatMessage = {
+        id: Date.now().toString(),
+        username: 'Test User',
+        message: 'Test message from SignalR',
+        timestamp: new Date(),
+        userId: this.getUserId()
+      };
+      
+      console.log('📤 Sending test message:', testMessage);
+      this.signalrService.sendChatMessage(this.webinarId, testMessage);
+    } else {
+      console.warn('⚠️ SignalR not connected');
+    }
+  }
+
   // Get current user ID for chat
   getUserId(): string {
-    return this.dashboard()?.user?.userId?.toString() || '';
+    const userId = this.dashboard()?.user?.userId?.toString();
+    if (userId && userId.trim() !== '') {
+      return userId;
+    }
+    // Generate numeric guest user ID for SignalR compatibility
+    return this.generateGuestUserId();
   }
 
   // Chat functionality for guest view
@@ -2178,12 +2307,34 @@ export class DashboardComponent implements OnInit {
       userId: this.getUserId()
     };
 
-    // Add message to local chat
-    this.chatMessages.update(messages => [...messages, newMessage]);
-    this.currentMessage = '';
+    // Send message via SignalR to sync with other users
+    if (this.signalrConnected()) {
+      console.log('💬 Sending chat message via SignalR:', newMessage);
+      // Only send via SignalR - don't add locally (it will come back via SignalR)
+      this.signalrService.sendChatMessage(this.webinarId, newMessage);
+    } else {
+      console.warn('⚠️ SignalR not connected, adding message locally only');
+      // Add to local chat if SignalR is not connected
+      this.chatMessages.update(messages => [...messages, newMessage]);
+      this.scrollToBottom();
+    }
 
-    // In a real app, you would send this via SignalR to the server
-    console.log('💬 Chat message sent:', newMessage);
+    this.currentMessage = '';
+    console.log('💬 Chat message processed:', newMessage);
+  }
+
+  // Auto-scroll to bottom of chat messages
+  scrollToBottom() {
+    if (!isPlatformBrowser(this.platformId)) return;
+    
+    try {
+      const chatMessages = document.querySelector('.chat-messages');
+      if (chatMessages) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    } catch (error) {
+      console.log('⚠️ Could not scroll to bottom:', error);
+    }
   }
 
   onChatKeyPress(event: KeyboardEvent) {
