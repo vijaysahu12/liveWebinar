@@ -6,12 +6,7 @@
   </div>
 }
 
-<!-- Login Modal (shown when user is not authenticated) -->
-@if (showLogin() && !isLoading()) {
-  <app-user-login (loginSuccess)="onLoginSuccess()"></app-user-login>
-}
-
-<!-- Main Application Content (shown when user is authenticated) -->
-@if (!showLogin() && !isLoading()) {
+<!-- Main Application Content (always show router-outlet for unified routing) -->
+@if (!isLoading()) {
   <router-outlet></router-outlet>
 }

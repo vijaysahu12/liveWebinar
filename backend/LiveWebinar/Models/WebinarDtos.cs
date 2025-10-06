@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace liveWebinar.Models
 {
     public class LoginRequest
@@ -21,7 +23,10 @@ namespace liveWebinar.Models
         public string Name { get; set; } = string.Empty;
         public string Mobile { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        public UserRole Role { get; set; }
+        
+        [JsonPropertyName("userRoleType")]
+        public UserRole UserRoleType { get; set; } // Explicitly map to userRoleType for frontend compatibility
+        
         public bool IsEmailVerified { get; set; }
         public bool IsMobileVerified { get; set; }
         public DateTime CreatedAt { get; set; }

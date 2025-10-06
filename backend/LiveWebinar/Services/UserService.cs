@@ -112,7 +112,8 @@ public class UserService : IUserService
                     State = user.State,
                     Country = user.Country,
                     CreatedAt = user.CreatedAt,
-                    LastLoginAt = user.LastLoginAt
+                    LastLoginAt = user.LastLoginAt,
+                    UserRoleType = user.UserRoleType
                 },
                 Token = token,
                 ExpiresAt = expiresAt
@@ -170,7 +171,8 @@ public class UserService : IUserService
                             State = user.State,
                             Country = user.Country,
                             CreatedAt = user.CreatedAt,
-                            LastLoginAt = user.LastLoginAt
+                            LastLoginAt = user.LastLoginAt,
+                            UserRoleType = user.UserRoleType
                         },
                         ExpiresAt = validatedToken.ValidTo
                     };

@@ -131,7 +131,7 @@ public class WebinarController : ControllerBase
                     Name = user.Name,
                     Mobile = user.Mobile,
                     Email = user.Email,
-                    Role = user.UserRoleType,
+                    UserRoleType = user.UserRoleType, // Fixed: was Role, now UserRoleType
                     IsEmailVerified = user.IsEmailVerified,
                     IsMobileVerified = user.IsMobileVerified,
                     CreatedAt = user.CreatedAt,

@@ -367,17 +367,23 @@ export class LoginComponent {
       if (response.success) {
         this.successMessage.set('Login successful! Redirecting...');
         
-        // Store user data
-        localStorage.setItem('liveWebinar-user', JSON.stringify(response.user));
+        // Store user data with proper format for UserService
+        const userProfile = {
+          userId: response.user?.userId.toString() || '',
+          name: response.user?.name || '',
+          mobile: response.user?.mobile || '',
+          token: response.token || '',
+          loginTime: Date.now(),
+          expiresAt: Date.now() + (5 * 60 * 60 * 1000) // 5 hours
+        };
+
+        // Store in both formats for compatibility
+        localStorage.setItem('liveWebinar-user', JSON.stringify(userProfile));
         localStorage.setItem('liveWebinar-token', response.token || '');
         
-        // Redirect based on user role
+        // Single unified redirect to dashboard - let the dashboard handle role-based content
         setTimeout(() => {
-          if (response.user?.role === UserRole.Admin || response.user?.role === UserRole.Host) {
-            this.router.navigate(['/admin-dashboard']);
-          } else {
-            this.router.navigate(['/viewer-dashboard']);
-          }
+          this.router.navigate(['/dashboard']);
         }, 1500);
       } else {
         this.errorMessage.set(response.message);

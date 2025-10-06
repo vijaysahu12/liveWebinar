@@ -24,6 +24,14 @@ export class SignalrService {
 
 
     startConnection(webinarId: string, userId: string, role: string = 'viewer') {
+        console.log('🔗 startConnection called with:', { webinarId, userId, role });
+        
+        // Check if we're in browser environment
+        if (typeof window === 'undefined') {
+            console.log('⚠️ Skipping SignalR connection - not in browser environment');
+            return;
+        }
+        
         // Use protocol-relative URL or check current protocol
         const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
         const baseUrl = `${protocol}//localhost:5021`;

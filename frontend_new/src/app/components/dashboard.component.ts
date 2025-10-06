@@ -9,8 +9,20 @@ import {
   UserRole, 
   WebinarStatus, 
   SubscriptionType,
-  CreateWebinarRequest 
+  CreateWebinarRequest,
+  AdminUserInfo,
+  AdminCreateUserRequest,
+  AdminUpdateUserRequest
 } from '../models/user.models';
+
+// Chat interface for guest view
+interface ChatMessage {
+  id: string;
+  username: string;
+  message: string;
+  timestamp: Date;
+  userId: string;
+}
 
 @Component({
   selector: 'app-dashboard',
@@ -84,6 +96,82 @@ import {
             }
           </div>
 
+          <!-- Guest View: Video + Chat -->
+          @if (isGuest()) {
+            <section class="guest-section">
+              <div class="video-chat-container">
+                <!-- Left Side: Live Streaming (70%) -->
+                <div class="video-section">
+                  <!-- Event header -->
+                  <div class="event-header">
+                    <div style="flex:1">
+                      <div class="event-title">Algo Trading Setup for Crypto</div>
+                      <div class="event-meta" style="margin-top:6px">
+                        <div class="pill">Event: Oct 5, 2025 • 07:00 PM IST</div>
+                        <div class="pill">Duration: 90 mins</div>
+                        <div class="pill live-pill">LIVE</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Video player area -->
+                  <div class="video-area">
+                    <iframe 
+                      src="https://www.youtube.com/embed/2kT42dG4xpg?si=pp0ho09c9_h4hnGj"
+                      title="YouTube video player" 
+                      frameborder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerpolicy="strict-origin-when-cross-origin" 
+                      allowfullscreen>
+                    </iframe>
+                  </div>
+                </div>
+
+                <!-- Right Side: Chat (30%) -->
+                <div class="chat-section">
+                  <div class="chat-header">
+                    <h3>Live Chat</h3>
+                    <div class="chat-stats">{{ chatMessages().length }} messages</div>
+                  </div>
+
+                  <div class="chat-messages">
+                    @for (message of chatMessages(); track message.id) {
+                      <div class="chat-message" [class.own-message]="message.userId === getUserId()">
+                        <div class="message-header">
+                          <span class="username">{{ message.username }}</span>
+                          <span class="timestamp">{{ message.timestamp | date:'HH:mm' }}</span>
+                        </div>
+                        <div class="message-content">{{ message.message }}</div>
+                      </div>
+                    }
+
+                    @if (chatMessages().length === 0) {
+                      <div class="no-messages">
+                        <p>💬 No messages yet. Start the conversation!</p>
+                      </div>
+                    }
+                  </div>
+
+                  <div class="chat-input">
+                    <input 
+                      type="text" 
+                      placeholder="Type your message..." 
+                      [(ngModel)]="currentMessage"
+                      (keypress)="onChatKeyPress($event)"
+                      class="message-input" 
+                    />
+                    <button 
+                      (click)="sendChatMessage()" 
+                      [disabled]="!currentMessage.trim()"
+                      class="send-btn">
+                      Send
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          }
+
           <!-- Host Controls -->
           @if (isHostOrAdmin()) {
             <section class="section">
@@ -140,6 +228,242 @@ import {
                   <button class="create-btn" (click)="showCreateWebinar.set(true)">
                     🎬 Create Your First Webinar
                   </button>
+                </div>
+              }
+            </section>
+          }
+
+          <!-- Admin Controls -->
+          @if (isAdmin()) {
+            <section class="section">
+              <div class="section-header">
+                <h2>👑 Admin Controls</h2>
+                <div class="admin-buttons">
+                  <button class="create-btn" (click)="showUsers()">
+                    👥 Manage Users
+                  </button>
+                  <button class="create-btn" (click)="showCreateUser.set(true)">
+                    ➕ Create User
+                  </button>
+                </div>
+              </div>
+
+              <!-- User Management Modal -->
+              @if (showUserManagement()) {
+                <div class="modal-overlay" (click)="showUserManagement.set(false)">
+                  <div class="modal-content user-management-modal" (click)="$event.stopPropagation()">
+                    <div class="modal-header">
+                      <h3>👥 User Management</h3>
+                      <button class="close-btn" (click)="showUserManagement.set(false)">✕</button>
+                    </div>
+                    
+                    <div class="modal-body">
+                      @if (usersLoading()) {
+                        <div class="loading-container">
+                          <div class="loading-spinner"></div>
+                          <p>Loading users...</p>
+                        </div>
+                      } @else if (usersError()) {
+                        <div class="error-message">{{ usersError() }}</div>
+                      } @else {
+                        <div class="users-table-container">
+                          <table class="users-table">
+                            <thead>
+                              <tr>
+                                <th>Name</th>
+                                <th>Mobile</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              @for (user of users(); track user.id) {
+                                <tr>
+                                  <td>{{ user.name }}</td>
+                                  <td>{{ user.mobile }}</td>
+                                  <td>{{ user.email }}</td>
+                                  <td>
+                                    <span class="role-badge" [class]="'role-' + user.userRoleType">
+                                      {{ user.userRoleType === 0 ? 'Guest' : user.userRoleType === 1 ? 'Admin' : 'Host' }}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span class="status-badge" [class]="user.isActive ? 'active' : 'inactive'">
+                                      {{ user.isActive ? 'Active' : 'Inactive' }}
+                                    </span>
+                                  </td>
+                                  <td>{{ user.createdAt | date:'short' }}</td>
+                                  <td>
+                                    <button class="action-btn edit-btn" (click)="editUser(user)">✏️</button>
+                                    <button class="action-btn delete-btn" (click)="deleteUser(user.id)">🗑️</button>
+                                  </td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                          
+                          <!-- Pagination -->
+                          <div class="pagination">
+                            <button class="page-btn" [disabled]="currentPage() === 1" (click)="previousPage()">
+                              ← Previous
+                            </button>
+                            <span class="page-info">
+                              Page {{ currentPage() }} of {{ Math.ceil(totalUsers() / pageSize) }}
+                              ({{ totalUsers() }} total users)
+                            </span>
+                            <button class="page-btn" [disabled]="(currentPage() * pageSize) >= totalUsers()" (click)="nextPage()">
+                              Next →
+                            </button>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+
+              <!-- Create User Modal -->
+              @if (showCreateUser()) {
+                <div class="modal-overlay" (click)="showCreateUser.set(false)">
+                  <div class="modal-content create-user-modal" (click)="$event.stopPropagation()">
+                    <div class="modal-header">
+                      <h3>➕ Create New User</h3>
+                      <button class="close-btn" (click)="showCreateUser.set(false)">✕</button>
+                    </div>
+                    
+                    <div class="modal-body">
+                      <form class="user-form" (ngSubmit)="createUser()">
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="userName">Name *</label>
+                            <input type="text" id="userName" [(ngModel)]="newUser.name" required>
+                          </div>
+                          <div class="form-group">
+                            <label for="userMobile">Mobile *</label>
+                            <input type="tel" id="userMobile" [(ngModel)]="newUser.mobile" required>
+                          </div>
+                        </div>
+                        
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="userEmail">Email</label>
+                            <input type="email" id="userEmail" [(ngModel)]="newUser.email">
+                          </div>
+                          <div class="form-group">
+                            <label for="userRole">Role</label>
+                            <select id="userRole" [(ngModel)]="newUser.userRoleType">
+                              @for (role of getRoleOptions(); track role.value) {
+                                <option [value]="role.value">{{ role.label }}</option>
+                              }
+                            </select>
+                          </div>
+                        </div>
+                        
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="userCity">City</label>
+                            <input type="text" id="userCity" [(ngModel)]="newUser.city">
+                          </div>
+                          <div class="form-group">
+                            <label for="userState">State</label>
+                            <input type="text" id="userState" [(ngModel)]="newUser.state">
+                          </div>
+                        </div>
+                        
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="userCountry">Country</label>
+                            <input type="text" id="userCountry" [(ngModel)]="newUser.country">
+                          </div>
+                          <div class="form-group checkbox-group">
+                            <label>
+                              <input type="checkbox" [(ngModel)]="newUser.isActive">
+                              Active User
+                            </label>
+                          </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                          <button type="button" class="cancel-btn" (click)="showCreateUser.set(false)">Cancel</button>
+                          <button type="submit" class="submit-btn">Create User</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              <!-- Edit User Modal -->
+              @if (editingUser()) {
+                <div class="modal-overlay" (click)="cancelUserEdit()">
+                  <div class="modal-content edit-user-modal" (click)="$event.stopPropagation()">
+                    <div class="modal-header">
+                      <h3>✏️ Edit User</h3>
+                      <button class="close-btn" (click)="cancelUserEdit()">✕</button>
+                    </div>
+                    
+                    <div class="modal-body">
+                      <form class="user-form" (ngSubmit)="updateUser()">
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="editUserName">Name</label>
+                            <input type="text" id="editUserName" [(ngModel)]="editingUser()!.name">
+                          </div>
+                          <div class="form-group">
+                            <label for="editUserMobile">Mobile (Read Only)</label>
+                            <input type="tel" id="editUserMobile" [value]="editingUser()!.mobile" readonly>
+                          </div>
+                        </div>
+                        
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="editUserEmail">Email</label>
+                            <input type="email" id="editUserEmail" [(ngModel)]="editingUser()!.email">
+                          </div>
+                          <div class="form-group">
+                            <label for="editUserRole">Role</label>
+                            <select id="editUserRole" [(ngModel)]="editingUser()!.userRoleType">
+                              @for (role of getRoleOptions(); track role.value) {
+                                <option [value]="role.value">{{ role.label }}</option>
+                              }
+                            </select>
+                          </div>
+                        </div>
+                        
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="editUserCity">City</label>
+                            <input type="text" id="editUserCity" [(ngModel)]="editingUser()!.city">
+                          </div>
+                          <div class="form-group">
+                            <label for="editUserState">State</label>
+                            <input type="text" id="editUserState" [(ngModel)]="editingUser()!.state">
+                          </div>
+                        </div>
+                        
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="editUserCountry">Country</label>
+                            <input type="text" id="editUserCountry" [(ngModel)]="editingUser()!.country">
+                          </div>
+                          <div class="form-group checkbox-group">
+                            <label>
+                              <input type="checkbox" [(ngModel)]="editingUser()!.isActive">
+                              Active User
+                            </label>
+                          </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                          <button type="button" class="cancel-btn" (click)="cancelUserEdit()">Cancel</button>
+                          <button type="submit" class="submit-btn">Update User</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
                 </div>
               }
             </section>
@@ -1018,6 +1342,454 @@ import {
         min-width: auto;
       }
     }
+
+    /* User Management Styles */
+    .admin-buttons {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .user-management-modal,
+    .create-user-modal,
+    .edit-user-modal {
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .users-table-container {
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .users-table th,
+    .users-table td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .users-table th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .users-table tbody tr:hover {
+      background: #f7fafc;
+    }
+
+    .role-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .role-0 {
+      background: #e2e8f0;
+      color: #4a5568;
+    }
+
+    .role-1 {
+      background: #fed7d7;
+      color: #c53030;
+    }
+
+    .role-2 {
+      background: #c6f6d5;
+      color: #2f855a;
+    }
+
+    .status-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .status-badge.active {
+      background: #c6f6d5;
+      color: #2f855a;
+    }
+
+    .status-badge.inactive {
+      background: #fed7d7;
+      color: #c53030;
+    }
+
+    .action-btn {
+      background: none;
+      border: none;
+      padding: 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin: 0 0.25rem;
+    }
+
+    .edit-btn:hover {
+      background: #e2f8ff;
+    }
+
+    .delete-btn:hover {
+      background: #fed7d7;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .page-btn {
+      background: #4299e1;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .page-btn:hover:not(:disabled) {
+      background: #3182ce;
+    }
+
+    .page-btn:disabled {
+      background: #e2e8f0;
+      color: #a0aec0;
+      cursor: not-allowed;
+    }
+
+    .page-info {
+      font-size: 0.875rem;
+      color: #4a5568;
+    }
+
+    .user-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-group label {
+      font-weight: 600;
+      color: #2d3748;
+      font-size: 0.875rem;
+    }
+
+    .form-group input,
+    .form-group select {
+      padding: 0.75rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #4299e1;
+      box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+
+    .form-group input[readonly] {
+      background: #f7fafc;
+      color: #4a5568;
+    }
+
+    .checkbox-group {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .submit-btn {
+      background: #4299e1;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .submit-btn:hover {
+      background: #3182ce;
+    }
+
+    @media (max-width: 768px) {
+      .admin-buttons {
+        flex-direction: column;
+      }
+      
+      .users-table {
+        font-size: 0.875rem;
+      }
+      
+      .users-table th,
+      .users-table td {
+        padding: 0.5rem;
+      }
+      
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+      
+      .pagination {
+        flex-direction: column;
+        gap: 1rem;
+      }
+    }
+
+    /* Guest View Styles */
+    .guest-section {
+      margin-top: 2rem;
+    }
+
+    .video-chat-container {
+      display: flex;
+      gap: 1.5rem;
+      height: 600px;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .video-section {
+      flex: 7;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .event-header {
+      padding: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .event-title {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .event-meta {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.875rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .live-pill {
+      background: #ff4444 !important;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .video-area {
+      flex: 1;
+      position: relative;
+    }
+
+    .video-area iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .chat-section {
+      flex: 3;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid #e5e7eb;
+    }
+
+    .chat-header {
+      padding: 1rem;
+      background: #f8fafc;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chat-header h3 {
+      margin: 0;
+      color: #374151;
+      font-size: 1.1rem;
+    }
+
+    .chat-stats {
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .chat-message {
+      background: #f3f4f6;
+      padding: 0.75rem;
+      border-radius: 8px;
+      max-width: 80%;
+    }
+
+    .chat-message.own-message {
+      background: #dbeafe;
+      margin-left: auto;
+    }
+
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .username {
+      font-weight: 600;
+      color: #374151;
+      font-size: 0.875rem;
+    }
+
+    .timestamp {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    .message-content {
+      color: #111827;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+
+    .no-messages {
+      text-align: center;
+      color: #6b7280;
+      margin-top: 2rem;
+    }
+
+    .chat-input {
+      padding: 1rem;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .message-input {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      resize: none;
+    }
+
+    .message-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .send-btn {
+      padding: 0.75rem 1.5rem;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .send-btn:hover:not(:disabled) {
+      background: #2563eb;
+    }
+
+    .send-btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    /* Responsive Design for Guest View */
+    @media (max-width: 1024px) {
+      .video-chat-container {
+        flex-direction: column;
+        height: auto;
+      }
+
+      .video-section {
+        flex: none;
+        height: 300px;
+      }
+
+      .chat-section {
+        flex: none;
+        height: 400px;
+        border-left: none;
+        border-top: 1px solid #e5e7eb;
+      }
+    }
   `]
 })
 export class DashboardComponent implements OnInit {
@@ -1025,6 +1797,21 @@ export class DashboardComponent implements OnInit {
   loading = signal(true);
   error = signal('');
   showCreateWebinar = signal(false);
+  
+  // User Management signals
+  showUserManagement = signal(false);
+  users = signal<AdminUserInfo[]>([]);
+  usersLoading = signal(false);
+  usersError = signal('');
+  showCreateUser = signal(false);
+  editingUser = signal<AdminUserInfo | null>(null);
+  totalUsers = signal(0);
+  currentPage = signal(1);
+  pageSize = 10;
+
+  // Chat properties for guest view
+  chatMessages = signal<ChatMessage[]>([]);
+  currentMessage = '';
   
   newWebinar: CreateWebinarRequest = {
     title: '',
@@ -1037,10 +1824,22 @@ export class DashboardComponent implements OnInit {
     price: 0
   };
 
+  newUser: AdminCreateUserRequest = {
+    name: '',
+    mobile: '',
+    email: '',
+    city: '',
+    state: '',
+    country: '',
+    userRoleType: UserRole.Guest,
+    isActive: true
+  };
+
   // Expose enums to template
   SubscriptionType = SubscriptionType;
   WebinarStatus = WebinarStatus;
   UserRole = UserRole;
+  Math = Math;
 
   constructor(
     private userService: UserService,
@@ -1116,17 +1915,17 @@ export class DashboardComponent implements OnInit {
   }
 
   isHostOrAdmin(): boolean {
-    const role = this.dashboard()?.user?.role;
+    const role = this.dashboard()?.user?.userRoleType;
     return role === UserRole.Host || role === UserRole.Admin;
   }
 
   getRoleClass(): string {
-    const role = this.dashboard()?.user?.role;
+    const role = this.dashboard()?.user?.userRoleType;
     return role === UserRole.Admin ? 'admin' : role === UserRole.Host ? 'host' : 'guest';
   }
 
   getRoleText(): string {
-    const role = this.dashboard()?.user?.role;
+    const role = this.dashboard()?.user?.userRoleType;
     return role === UserRole.Admin ? '👑 Admin' : role === UserRole.Host ? '🎤 Host' : '👥 Viewer';
   }
 
@@ -1208,9 +2007,189 @@ export class DashboardComponent implements OnInit {
     }
   }
 
+  // User Management Methods
+  isAdmin(): boolean {
+    const role = this.dashboard()?.user?.userRoleType;
+    return role === UserRole.Admin;
+  }
+
+  async showUsers() {
+    if (!this.isAdmin()) {
+      alert('Admin access required');
+      return;
+    }
+    
+    this.showUserManagement.set(true);
+    await this.loadUsers();
+  }
+
+  async loadUsers() {
+    if (!this.isAdmin()) return;
+    
+    this.usersLoading.set(true);
+    this.usersError.set('');
+    
+    try {
+      const response = await this.userService.getAllUsers(this.currentPage(), this.pageSize);
+      this.users.set(response.users);
+      this.totalUsers.set(response.totalCount);
+    } catch (error: any) {
+      this.usersError.set(error.message || 'Failed to load users');
+    } finally {
+      this.usersLoading.set(false);
+    }
+  }
+
+  async createUser() {
+    if (!this.isAdmin()) {
+      alert('Admin access required');
+      return;
+    }
+
+    if (!this.newUser.name || !this.newUser.mobile) {
+      alert('Name and mobile are required');
+      return;
+    }
+
+    try {
+      await this.userService.createUser(this.newUser);
+      this.showCreateUser.set(false);
+      this.resetNewUser();
+      await this.loadUsers();
+      alert('User created successfully');
+    } catch (error: any) {
+      alert('Failed to create user: ' + error.message);
+    }
+  }
+
+  editUser(user: AdminUserInfo) {
+    this.editingUser.set({ ...user });
+  }
+
+  async updateUser() {
+    const user = this.editingUser();
+    if (!user || !this.isAdmin()) return;
+
+    try {
+      const updateData: AdminUpdateUserRequest = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        city: user.city,
+        state: user.state,
+        country: user.country,
+        userRoleType: user.userRoleType,
+        isActive: user.isActive
+      };
+
+      await this.userService.updateUser(updateData);
+      this.editingUser.set(null);
+      await this.loadUsers();
+      alert('User updated successfully');
+    } catch (error: any) {
+      alert('Failed to update user: ' + error.message);
+    }
+  }
+
+  async deleteUser(userId: number) {
+    if (!this.isAdmin()) {
+      alert('Admin access required');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this user?')) {
+      return;
+    }
+
+    try {
+      await this.userService.deleteUser(userId);
+      await this.loadUsers();
+      alert('User deleted successfully');
+    } catch (error: any) {
+      alert('Failed to delete user: ' + error.message);
+    }
+  }
+
+  resetNewUser() {
+    this.newUser = {
+      name: '',
+      mobile: '',
+      email: '',
+      city: '',
+      state: '',
+      country: '',
+      userRoleType: UserRole.Guest,
+      isActive: true
+    };
+  }
+
+  cancelUserEdit() {
+    this.editingUser.set(null);
+  }
+
+  getRoleOptions() {
+    return [
+      { value: UserRole.Guest, label: 'Guest' },
+      { value: UserRole.Host, label: 'Host' },
+      { value: UserRole.Admin, label: 'Admin' }
+    ];
+  }
+
+  async nextPage() {
+    if ((this.currentPage() * this.pageSize) < this.totalUsers()) {
+      this.currentPage.set(this.currentPage() + 1);
+      await this.loadUsers();
+    }
+  }
+
+  async previousPage() {
+    if (this.currentPage() > 1) {
+      this.currentPage.set(this.currentPage() - 1);
+      await this.loadUsers();
+    }
+  }
+
   logout() {
     localStorage.removeItem('liveWebinar-user');
     localStorage.removeItem('liveWebinar-token');
     this.router.navigate(['/login']);
+  }
+
+  // Guest role checking method
+  isGuest(): boolean {
+    const role = this.dashboard()?.user?.userRoleType;
+    return role === UserRole.Guest;
+  }
+
+  // Get current user ID for chat
+  getUserId(): string {
+    return this.dashboard()?.user?.userId?.toString() || '';
+  }
+
+  // Chat functionality for guest view
+  sendChatMessage() {
+    if (!this.currentMessage.trim()) return;
+
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      username: this.dashboard()?.user?.name || 'Anonymous',
+      message: this.currentMessage.trim(),
+      timestamp: new Date(),
+      userId: this.getUserId()
+    };
+
+    // Add message to local chat
+    this.chatMessages.update(messages => [...messages, newMessage]);
+    this.currentMessage = '';
+
+    // In a real app, you would send this via SignalR to the server
+    console.log('💬 Chat message sent:', newMessage);
+  }
+
+  onChatKeyPress(event: KeyboardEvent) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.sendChatMessage();
+    }
   }
 }

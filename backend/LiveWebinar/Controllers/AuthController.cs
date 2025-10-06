@@ -118,7 +118,7 @@ public class AuthController : ControllerBase
                         Name = newUser.Name,
                         Mobile = newUser.Mobile,
                         Email = newUser.Email,
-                        Role = newUser.UserRoleType,
+                        UserRoleType = newUser.UserRoleType, // Fixed: was Role, now UserRoleType
                         IsEmailVerified = newUser.IsEmailVerified,
                         IsMobileVerified = newUser.IsMobileVerified,
                         CreatedAt = newUser.CreatedAt,
@@ -207,7 +207,7 @@ public class AuthController : ControllerBase
                     Name = user.Name,
                     Mobile = user.Mobile,
                     Email = user.Email,
-                    Role = user.UserRoleType,
+                    UserRoleType = user.UserRoleType, // Fixed: was Role, now UserRoleType
                     IsEmailVerified = user.IsEmailVerified,
                     IsMobileVerified = user.IsMobileVerified,
                     CreatedAt = user.CreatedAt,

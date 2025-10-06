@@ -12,7 +12,11 @@ import {
   SubscriptionRequest, 
   WebinarAccessResponse,
   WebinarScheduleDto,
-  ViewerLoginRequest
+  ViewerLoginRequest,
+  AdminCreateUserRequest,
+  AdminCreateUserResponse,
+  AdminUserListResponse,
+  AdminUpdateUserRequest
 } from '../models/user.models';
 
 export interface UserProfile {
@@ -22,6 +26,7 @@ export interface UserProfile {
   token: string;
   loginTime: number;
   expiresAt: number;
+  userRoleType: number; // 0=Guest, 1=Admin, 2=Host
 }
 
 // Legacy interface for backward compatibility
@@ -104,27 +109,27 @@ export class UserService {
   }
 
   async loginUser(loginData: ViewerLoginRequest): Promise<LegacyLoginResponse> {
+    // UNIFIED LOGIN: Use the same endpoint as the main login method
     try {
-      const response = await fetch('http://localhost:5021/api/auth/login-viewer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(loginData)
-      });
+      const loginRequest: LoginRequest = {
+        mobile: loginData.mobile,
+        name: loginData.name,
+        email: loginData.email || ''
+      };
 
-      const result: LegacyLoginResponse = await response.json();
-
-      console.log('🔍 Raw backend response:', result);
-
-      if (result.success && result.token && result.userId && result.name && result.mobile) {
+      console.log('🔄 Using unified login endpoint for viewer login');
+      const response = await this.login(loginRequest);
+      
+      if (response.success && response.user) {
+        // Store user data in the correct format
         const user: UserProfile = {
-          userId: result.userId.toString(),
-          name: result.name,
-          mobile: result.mobile,
-          token: result.token,
+          userId: response.user.userId.toString(),
+          name: response.user.name,
+          mobile: response.user.mobile,
+          token: response.token || '',
           loginTime: Date.now(),
-          expiresAt: Date.now() + this.TOKEN_LIFETIME
+          expiresAt: Date.now() + this.TOKEN_LIFETIME,
+          userRoleType: response.user.userRoleType
         };
 
         console.log('🔍 User object to save:', user);
@@ -133,18 +138,30 @@ export class UserService {
         this.userSubject.next(user);
         
         console.log('✅ User logged in successfully:', user.name);
-        console.log('💾 User saved to localStorage with key:', this.STORAGE_KEY);
+        
+        // Convert to legacy response format for backward compatibility
+        return {
+          success: true,
+          message: response.message,
+          token: response.token,
+          userId: response.user.userId,
+          name: response.user.name,
+          mobile: response.user.mobile,
+          shouldLogoutOther: false
+        };
+      } else {
+        return {
+          success: false,
+          message: response.message || 'Login failed'
+        };
       }
-
-      return result;
-    } catch (error) {
-      console.error('❌ Login failed - server may be unavailable:', error);
-      console.warn('⚠️ Network error during login attempt');
+    } catch (error: any) {
+      console.error('❌ Login failed:', error);
       
-      // Return user-friendly error message, don't expose technical details
+      // Return user-friendly error message
       return {
         success: false,
-        message: 'Unable to connect to server. Please check your connection and try again.'
+        message: error.message || 'Unable to connect to server. Please check your connection and try again.'
       };
     }
   }
@@ -186,7 +203,7 @@ export class UserService {
 
   async login(loginData: LoginRequest): Promise<LoginResponse> {
     try {
-      const response = await this.http.post<LoginResponse>(`${this.apiUrl}/auth/login`, loginData).toPromise();
+      const response = await this.http.post<LoginResponse>(`${this.apiUrl}/user/login`, loginData).toPromise();
       return response || { success: false, message: 'No response from server' };
     } catch (error: any) {
       console.error('Login error:', error);
@@ -263,6 +280,101 @@ export class UserService {
     } catch (error: any) {
       console.error('Subscribe error:', error);
       throw new Error(error.error?.message || 'Failed to create subscription');
+    }
+  }
+
+  // Admin User Management Methods
+  async createUser(userData: AdminCreateUserRequest): Promise<AdminCreateUserResponse> {
+    try {
+      const user = this.getCurrentUser();
+      if (!user?.token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await this.http.post<AdminCreateUserResponse>(
+        `${this.apiUrl}/user/admin/create-user`, 
+        userData,
+        {
+          headers: {
+            'Authorization': `Bearer ${user.token}`
+          }
+        }
+      ).toPromise();
+      
+      return response!;
+    } catch (error: any) {
+      console.error('Create user error:', error);
+      throw new Error(error.error?.message || 'Failed to create user');
+    }
+  }
+
+  async getAllUsers(page: number = 1, pageSize: number = 50): Promise<AdminUserListResponse> {
+    try {
+      const user = this.getCurrentUser();
+      if (!user?.token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await this.http.get<AdminUserListResponse>(
+        `${this.apiUrl}/user/admin/users?page=${page}&pageSize=${pageSize}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${user.token}`
+          }
+        }
+      ).toPromise();
+      
+      return response!;
+    } catch (error: any) {
+      console.error('Get users error:', error);
+      throw new Error(error.error?.message || 'Failed to fetch users');
+    }
+  }
+
+  async updateUser(userData: AdminUpdateUserRequest): Promise<AdminCreateUserResponse> {
+    try {
+      const user = this.getCurrentUser();
+      if (!user?.token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await this.http.put<AdminCreateUserResponse>(
+        `${this.apiUrl}/user/admin/update-user`, 
+        userData,
+        {
+          headers: {
+            'Authorization': `Bearer ${user.token}`
+          }
+        }
+      ).toPromise();
+      
+      return response!;
+    } catch (error: any) {
+      console.error('Update user error:', error);
+      throw new Error(error.error?.message || 'Failed to update user');
+    }
+  }
+
+  async deleteUser(userId: number): Promise<{ success: boolean; message: string }> {
+    try {
+      const user = this.getCurrentUser();
+      if (!user?.token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await this.http.delete<{ success: boolean; message: string }>(
+        `${this.apiUrl}/user/admin/delete-user/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${user.token}`
+          }
+        }
+      ).toPromise();
+      
+      return response!;
+    } catch (error: any) {
+      console.error('Delete user error:', error);
+      throw new Error(error.error?.message || 'Failed to delete user');
     }
   }
 }

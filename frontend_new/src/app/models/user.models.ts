@@ -41,7 +41,7 @@ export interface UserDto {
   name: string;
   mobile: string;
   email: string;
-  role: UserRole;
+  userRoleType: UserRole; // Changed from 'role' to match backend 'UserRoleType'
   isEmailVerified: boolean;
   isMobileVerified: boolean;
   createdAt: string;
@@ -119,4 +119,56 @@ export interface UserSubscription {
   amountPaid: number;
   paymentTransactionId?: string;
   createdAt: string;
+}
+
+// Admin User Management Types
+export interface AdminCreateUserRequest {
+  name: string;
+  mobile: string;
+  email?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  userRoleType: UserRole;
+  isActive: boolean;
+}
+
+export interface AdminCreateUserResponse {
+  success: boolean;
+  message: string;
+  user?: UserDto;
+}
+
+export interface AdminUserListResponse {
+  success: boolean;
+  message: string;
+  users: AdminUserInfo[];
+  totalCount: number;
+}
+
+export interface AdminUserInfo {
+  id: number;
+  name: string;
+  mobile: string;
+  email: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  createdAt: string;
+  lastLoginAt: string;
+  userRoleType: UserRole;
+  isActive: boolean;
+  isEmailVerified: boolean;
+  isMobileVerified: boolean;
+}
+
+export interface AdminUpdateUserRequest {
+  id: number;
+  name?: string;
+  email?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  userRoleType?: UserRole;
+  isActive?: boolean;
 }
