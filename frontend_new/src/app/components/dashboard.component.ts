@@ -57,46 +57,48 @@ interface ChatMessage {
           <button class="retry-btn" (click)="loadDashboard()">🔄 Retry</button>
         </div>
       } @else if (dashboard()) {
-        <div class="dashboard-content">
+        <div class="dashboard-content" [class.full-screen-guest]="isGuest()">
           
-          <!-- Stats Cards -->
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-icon">📊</div>
-              <div class="stat-content">
-                <h3>{{ dashboard()?.totalRegistrations || 0 }}</h3>
-                <p>Total Registrations</p>
-              </div>
-            </div>
-            
-            @if (isHostOrAdmin()) {
+          <!-- Stats Cards - Only show for non-guests -->
+          @if (!isGuest()) {
+            <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-icon">🎤</div>
+                <div class="stat-icon">📊</div>
                 <div class="stat-content">
-                  <h3>{{ dashboard()?.totalWebinarsHosted || 0 }}</h3>
-                  <p>Webinars Hosted</p>
+                  <h3>{{ dashboard()?.totalRegistrations || 0 }}</h3>
+                  <p>Total Registrations</p>
                 </div>
               </div>
-            }
-            
-            <div class="stat-card">
-              <div class="stat-icon">🎯</div>
-              <div class="stat-content">
-                <h3>{{ dashboard()?.upcomingWebinars?.length || 0 }}</h3>
-                <p>Upcoming Events</p>
+              
+              @if (isHostOrAdmin()) {
+                <div class="stat-card">
+                  <div class="stat-icon">🎤</div>
+                  <div class="stat-content">
+                    <h3>{{ dashboard()?.totalWebinarsHosted || 0 }}</h3>
+                    <p>Webinars Hosted</p>
+                  </div>
+                </div>
+              }
+              
+              <div class="stat-card">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-content">
+                  <h3>{{ dashboard()?.upcomingWebinars?.length || 0 }}</h3>
+                  <p>Upcoming Events</p>
+                </div>
               </div>
-            </div>
 
-            @if (dashboard()?.activeSubscription) {
-              <div class="stat-card premium">
-                <div class="stat-icon">👑</div>
-                <div class="stat-content">
-                  <h3>Premium</h3>
-                  <p>Active Subscription</p>
+              @if (dashboard()?.activeSubscription) {
+                <div class="stat-card premium">
+                  <div class="stat-icon">👑</div>
+                  <div class="stat-content">
+                    <h3>Premium</h3>
+                    <p>Active Subscription</p>
+                  </div>
                 </div>
-              </div>
-            }
-          </div>
+              }
+            </div>
+          }
 
           <!-- Guest View: Video + Chat -->
           @if (isGuest()) {
@@ -633,6 +635,8 @@ interface ChatMessage {
       min-height: 100vh;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      flex-direction: column;
     }
 
     /* Header */
@@ -644,6 +648,16 @@ interface ChatMessage {
       position: sticky;
       top: 0;
       z-index: 100;
+      flex-shrink: 0;
+    }
+
+    /* Compact header for guest view */
+    .dashboard-container:has(.guest-section) .dashboard-header {
+      padding: 0.5rem 0;
+    }
+
+    .dashboard-container:has(.guest-section) .header-content {
+      padding: 0.5rem 1rem;
     }
 
     .header-content {
@@ -785,6 +799,34 @@ interface ChatMessage {
       max-width: 1200px;
       margin: 0 auto;
       padding: 2rem;
+      flex: 1;
+    }
+
+    /* Full screen styles for guest view */
+    .dashboard-container:has(.guest-section) {
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .dashboard-container:has(.guest-section) .dashboard-content {
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      height: calc(100vh - 80px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dashboard-content.full-screen-guest {
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      height: calc(100vh - 80px);
+      display: flex;
+      flex-direction: column;
     }
 
     /* Stats Grid */
@@ -1593,23 +1635,28 @@ interface ChatMessage {
 
     /* Guest View Styles */
     .guest-section {
-      margin-top: 2rem;
+      margin-top: 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
 
     .video-chat-container {
       display: flex;
-      gap: 1.5rem;
-      height: 600px;
+      gap: 0;
+      height: 100%;
       background: white;
-      border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      flex: 1;
     }
 
     .video-section {
       flex: 7;
       display: flex;
       flex-direction: column;
+      height: 100%;
+      border-right: 1px solid #e5e7eb;
     }
 
     .event-header {
@@ -1651,6 +1698,8 @@ interface ChatMessage {
     .video-area {
       flex: 1;
       position: relative;
+      height: 100%;
+      overflow: hidden;
     }
 
     .video-area iframe {
@@ -1664,6 +1713,8 @@ interface ChatMessage {
       display: flex;
       flex-direction: column;
       border-left: 1px solid #e5e7eb;
+      height: 100%;
+      overflow: hidden;
     }
 
     .chat-header {
@@ -1673,6 +1724,7 @@ interface ChatMessage {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-shrink: 0;
     }
 
     .chat-header h3 {
@@ -1726,6 +1778,7 @@ interface ChatMessage {
       flex-direction: column;
       gap: 0.75rem;
       scroll-behavior: smooth;
+      height: 100%;
     }
 
     .chat-message {
@@ -1775,6 +1828,7 @@ interface ChatMessage {
       border-top: 1px solid #e5e7eb;
       display: flex;
       gap: 0.75rem;
+      flex-shrink: 0;
     }
 
     .message-input {
@@ -1821,14 +1875,38 @@ interface ChatMessage {
 
       .video-section {
         flex: none;
-        height: 300px;
+        height: 50vh;
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
       }
 
       .chat-section {
         flex: none;
-        height: 400px;
+        height: 50vh;
         border-left: none;
         border-top: 1px solid #e5e7eb;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-container:has(.guest-section) .header-content {
+        padding: 0.5rem;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .user-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+
+      .video-section {
+        height: 40vh;
+      }
+
+      .chat-section {
+        height: 60vh;
       }
     }
   `]

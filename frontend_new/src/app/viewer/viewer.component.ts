@@ -237,7 +237,14 @@ export class ViewerComponent implements OnInit {
         // Subscribe to chat messages
         this.sr.chatMessage$.subscribe(chatData => {
             console.log('💬 Chat message received:', chatData);
-            this.addChatMessage(chatData);
+            
+            // Check for duplicate messages by ID
+            const existingMessage = this.chatMessages().find(m => m.id === chatData.id);
+            if (!existingMessage) {
+                this.addChatMessage(chatData);
+            } else {
+                console.log('⚠️ Duplicate message ignored:', chatData.id);
+            }
         });
         
         // Subscribe to engagement events
@@ -389,11 +396,12 @@ export class ViewerComponent implements OnInit {
             };
             
             console.log('💬 Sending chat message:', chatMessage);
+            // Only send via SignalR - don't add locally (it will come back via SignalR)
             this.sr.sendChatMessage(this.webinarId, chatMessage);
             this.currentMessage.set('');
         } else {
             console.warn('⚠️ Cannot send message - server offline');
-            // Add to local messages as a fallback
+            // Add to local messages as a fallback when offline
             this.addChatMessage({
                 id: Date.now().toString(),
                 username: this.username,

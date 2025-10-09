@@ -15,19 +15,23 @@
   color: var(--text-color);
   background-color: var(--bg-color);
   display: block;
-  padding: 24px;
+  padding: 0;
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .main-container {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 98%;
-  margin: 0 auto;
-  gap: 20px;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  gap: 0;
   background-color: var(--bg-color);
-  min-height: 100vh;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Top Controls Bar */
@@ -35,10 +39,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
+  padding: 12px 16px;
   background-color: var(--card-bg);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  height: 60px;
+  flex-shrink: 0;
 }
 
 .status-group {
@@ -50,20 +55,21 @@
 /* Main Content Area */
 .content-area {
   display: flex;
-  gap: 20px;
+  gap: 0;
   flex: 1;
-  min-height: 75vh;
+  height: calc(100vh - 60px);
+  overflow: hidden;
 }
 
 /* Left Side: Video Section (70%) */
 .video-section {
   flex: 0 0 70%;
   background-color: var(--card-bg);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  height: 100%;
 }
 
 .event-header {
@@ -99,15 +105,18 @@
 .video-area {
   position: relative;
   flex: 1;
-  min-height: 400px;
+  height: 100%;
+  overflow: hidden;
+  margin: 10px;
+  border-radius: 5px;
 }
 
 .video-area iframe {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 1330px;
+  height: 740px;
   border: none;
 }
 
@@ -123,11 +132,11 @@
 .chat-section {
   flex: 0 0 30%;
   background-color: var(--chat-bg);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  max-height: 700px;
+  height: 100%;
+  overflow: hidden;
 }
 
 .chat-header {
@@ -137,7 +146,7 @@
   padding: 16px;
   border-bottom: 1px solid var(--border-color);
   background-color: var(--card-bg);
-  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
 }
 
 .chat-header h3 {
@@ -159,6 +168,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  scroll-behavior: smooth;
+  height: 100%;
 }
 
 .chat-message {
@@ -227,7 +238,7 @@
   gap: 8px;
   border-top: 1px solid var(--border-color);
   background-color: var(--card-bg);
-  border-radius: 0 0 12px 12px;
+  flex-shrink: 0;
 }
 
 .message-input {
@@ -390,11 +401,11 @@ label {
   .content-area {
     flex-direction: column;
   }
-  
+
   .video-section {
     flex: none;
   }
-  
+
   .chat-section {
     flex: none;
     max-height: 400px;
@@ -405,21 +416,21 @@ label {
   :host {
     padding: 12px;
   }
-  
+
   .top-controls {
     flex-wrap: wrap;
     gap: 8px;
   }
-  
+
   .status-group {
     flex-wrap: wrap;
     gap: 8px;
   }
-  
+
   .event-title {
     font-size: 1.2rem;
   }
-  
+
   .chat-section {
     max-height: 300px;
   }
@@ -712,16 +723,19 @@ label {
     margin: 16px;
     max-height: 85vh;
   }
-  
-  .modal-header, .modal-content, .modal-footer {
+
+  .modal-header,
+  .modal-content,
+  .modal-footer {
     padding: 16px;
   }
-  
+
   .modal-footer {
     flex-direction: column-reverse;
   }
-  
-  .btn-primary, .btn-secondary {
+
+  .btn-primary,
+  .btn-secondary {
     width: 100%;
     justify-content: center;
   }
@@ -733,6 +747,7 @@ label {
     opacity: 0;
     transform: scale(0.9) translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -743,15 +758,19 @@ label {
   0% {
     transform: scale(1);
   }
+
   14% {
     transform: scale(1.1);
   }
+
   28% {
     transform: scale(1);
   }
+
   42% {
     transform: scale(1.1);
   }
+
   70% {
     transform: scale(1);
   }
@@ -771,8 +790,14 @@ label {
   overflow-y: auto;
 }
 
-.quick-actions, .qr-section, .file-section, .poll-section, 
-.announcement-section, .qa-section, .analytics-section, .advanced-section {
+.quick-actions,
+.qr-section,
+.file-section,
+.poll-section,
+.announcement-section,
+.qa-section,
+.analytics-section,
+.advanced-section {
   margin: 16px 0;
   padding: 12px;
   background-color: rgba(255, 255, 255, 0.05);
@@ -780,8 +805,14 @@ label {
   border-left: 4px solid var(--primary);
 }
 
-.quick-actions h5, .qr-section h5, .file-section h5, .poll-section h5,
-.announcement-section h5, .qa-section h5, .analytics-section h5, .advanced-section h5 {
+.quick-actions h5,
+.qr-section h5,
+.file-section h5,
+.poll-section h5,
+.announcement-section h5,
+.qa-section h5,
+.analytics-section h5,
+.advanced-section h5 {
   margin: 0 0 12px 0;
   font-size: 0.9rem;
   font-weight: 600;
@@ -857,12 +888,20 @@ label {
 }
 
 @keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-  50% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+  }
 }
 
 /* Form Inputs */
-.form-input, .form-textarea {
+.form-input,
+.form-textarea {
   width: 100%;
   padding: 8px 12px;
   margin: 4px 0 8px 0;
@@ -880,7 +919,8 @@ label {
   max-height: 120px;
 }
 
-.form-input:focus, .form-textarea:focus {
+.form-input:focus,
+.form-textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(90, 103, 216, 0.2);
@@ -931,7 +971,8 @@ label {
   right: 0;
   bottom: 0;
   z-index: 500;
-  display: none; /* Hidden by default */
+  display: none;
+  /* Hidden by default */
   align-items: center;
   justify-content: center;
   pointer-events: none;
@@ -966,6 +1007,7 @@ label {
     opacity: 0;
     transform: scale(0.8) translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -1203,7 +1245,7 @@ label {
   padding: 24px;
 }
 
-.like-request > div:first-child {
+.like-request>div:first-child {
   font-size: 1.1rem;
   font-weight: 600;
   margin-bottom: 20px;
@@ -1261,7 +1303,7 @@ label {
   padding: 20px;
 }
 
-.announcement-content > div:first-child {
+.announcement-content>div:first-child {
   font-size: 1.3rem;
   font-weight: 700;
   margin-bottom: 16px;
@@ -1269,7 +1311,7 @@ label {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.announcement-content > div:last-child {
+.announcement-content>div:last-child {
   font-size: 1rem;
   line-height: 1.6;
   color: var(--text-color);
@@ -1280,14 +1322,14 @@ label {
   padding: 16px;
 }
 
-.question-content > div:first-child {
+.question-content>div:first-child {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--primary);
   margin-bottom: 12px;
 }
 
-.question-content > div:nth-child(2) {
+.question-content>div:nth-child(2) {
   font-size: 1rem;
   line-height: 1.5;
   color: var(--text-color);
@@ -1301,7 +1343,7 @@ label {
   margin-top: 16px;
 }
 
-.question-answer > div {
+.question-answer>div {
   background: rgba(34, 197, 94, 0.1) !important;
   border-left-color: #22c55e !important;
 }
@@ -1335,21 +1377,21 @@ label {
     margin: 10px;
     padding: 20px;
   }
-  
+
   .engagement-title {
     font-size: 1.1rem;
   }
-  
+
   .poll-option {
     padding: 12px 16px;
     font-size: 0.9rem;
   }
-  
+
   .qr-image {
     width: 180px;
     height: 180px;
   }
-  
+
   .like-button {
     font-size: 3rem;
   }
@@ -1376,8 +1418,15 @@ label {
 }
 
 @keyframes heartbeat {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 .like-progress {
@@ -1409,22 +1458,22 @@ label {
     margin: 8px;
     padding: 12px;
   }
-  
+
   .action-btn {
     padding: 6px 10px;
     font-size: 0.75rem;
     min-width: 70px;
   }
-  
+
   .qr-image {
     width: 150px;
     height: 150px;
   }
-  
+
   .like-button {
     font-size: 2.5rem;
   }
-  
+
   .stats-grid {
     grid-template-columns: 1fr;
   }

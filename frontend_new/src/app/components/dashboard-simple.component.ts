@@ -540,7 +540,7 @@ interface AdminUser {
     }
 
     .dashboard-content {
-      max-width: 1200px;
+      max-width: 100%;
       margin: 0 auto;
       padding: 2rem;
     }
@@ -569,12 +569,13 @@ interface AdminUser {
     /* Guest View Styles */
     .guest-section {
       margin-top: 1rem;
+        height: 85vh;
     }
 
     .video-chat-container {
       display: flex;
       gap: 1.5rem;
-      height: 600px;
+      height: 100%;
       background: white;
       border-radius: 12px;
       overflow: hidden;
@@ -640,11 +641,14 @@ interface AdminUser {
     .video-area {
       flex: 1;
       position: relative;
+     margin: 10px;
+     border-radius: 12px;
+     overflow: hidden;  
     }
 
     .video-area iframe {
-      width: 100%;
-      height: 100%;
+      width: 1580px;
+      height: 890px;
       border: none;
     }
 
@@ -708,17 +712,19 @@ interface AdminUser {
       background: #f3f4f6;
       padding: 0.75rem;
       border-radius: 8px;
+      justify-content: flex-start   ;
       max-width: 80%;
     }
 
     .chat-message.own-message {
       background: #dbeafe;
+      justify-content: right;
       margin-left: auto;
     }
 
     .message-header {
       display: flex;
-      justify-content: space-between;
+      
       align-items: center;
       margin-bottom: 0.5rem;
     }
@@ -1331,12 +1337,12 @@ interface AdminUser {
 
       .video-section {
         flex: none;
-        height: 300px;
+        height: 100%;
       }
 
       .chat-section {
         flex: none;
-        height: 400px;
+        height: 100%;
         border-left: none;
         border-top: 1px solid #e5e7eb;
       }
