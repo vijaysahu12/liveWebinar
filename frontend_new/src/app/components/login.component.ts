@@ -6,30 +6,15 @@ import { UserService } from '../services/user.service';
 import { LoginRequest, LoginResponse, UserRole } from '../models/user.models';
 
 @Component({
-  selector: 'app-login',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
+    selector: 'app-login',
+    standalone: true,
+    imports: [CommonModule, FormsModule],
+    template: `
     <div class="login-container">
       <div class="login-card">
         <div class="login-header">
           <h1>🎥 Live Webinar</h1>
-          <p>Join or host amazing live sessions</p>
-        </div>
-
-        <div class="login-tabs">
-          <button 
-            class="tab-btn"
-            [class.active]="loginType() === 'guest'"
-            (click)="setLoginType('guest')">
-            👥 Join as Viewer
-          </button>
-          <button 
-            class="tab-btn"
-            [class.active]="loginType() === 'host'"
-            (click)="setLoginType('host')">
-            🎤 Host/Admin
-          </button>
+          <p>Enter your credentials to continue</p>
         </div>
 
         <form (ngSubmit)="onSubmit()" class="login-form">
@@ -81,12 +66,6 @@ import { LoginRequest, LoginResponse, UserRole } from '../models/user.models';
             />
           </div>
 
-          @if (loginType() === 'host') {
-            <div class="host-info">
-              <p>🔐 Host/Admin access requires proper authorization</p>
-            </div>
-          }
-
           <button 
             type="submit" 
             class="login-btn"
@@ -95,7 +74,7 @@ import { LoginRequest, LoginResponse, UserRole } from '../models/user.models';
               <span class="loading-spinner"></span>
               Logging in...
             } @else {
-              {{ loginType() === 'guest' ? '🎯 Join Webinar' : '🚀 Access Dashboard' }}
+              🚀 Login
             }
           </button>
         </form>
@@ -106,7 +85,7 @@ import { LoginRequest, LoginResponse, UserRole } from '../models/user.models';
       </div>
     </div>
   `,
-  styles: [`
+    styles: [`
     .login-container {
       min-height: 100vh;
       display: flex;
@@ -153,36 +132,6 @@ import { LoginRequest, LoginResponse, UserRole } from '../models/user.models';
       margin: 8px 0 0 0;
       color: #666;
       font-size: 1rem;
-    }
-
-    .login-tabs {
-      display: flex;
-      margin-bottom: 25px;
-      border-radius: 12px;
-      background: #f8f9fa;
-      padding: 4px;
-    }
-
-    .tab-btn {
-      flex: 1;
-      padding: 12px 16px;
-      border: none;
-      background: transparent;
-      border-radius: 8px;
-      font-weight: 600;
-      color: #666;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .tab-btn.active {
-      background: #667eea;
-      color: white;
-      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-    }
-
-    .tab-btn:hover:not(.active) {
-      background: #e9ecef;
     }
 
     .login-form {
@@ -315,84 +264,97 @@ import { LoginRequest, LoginResponse, UserRole } from '../models/user.models';
   `]
 })
 export class LoginComponent {
-  loginType = signal<'guest' | 'host'>('guest');
-  mobile = '';
-  name = '';
-  email = '';
-  
-  isLoading = signal(false);
-  errorMessage = signal('');
-  successMessage = signal('');
+    mobile = '';
+    name = '';
+    email = '';
 
-  constructor(
-    private userService: UserService,
-    private router: Router
-  ) {}
+    isLoading = signal(false);
+    errorMessage = signal('');
+    successMessage = signal('');
 
-  setLoginType(type: 'guest' | 'host') {
-    this.loginType.set(type);
-    this.clearMessages();
-  }
+    constructor(
+        private userService: UserService,
+        private router: Router
+    ) { }
 
-  clearMessages() {
-    this.errorMessage.set('');
-    this.successMessage.set('');
-  }
-
-  async onSubmit() {
-    this.clearMessages();
-
-    // Validate form
-    if (!this.mobile || !this.name) {
-      this.errorMessage.set('Please fill in all required fields');
-      return;
+    clearMessages() {
+        this.errorMessage.set('');
+        this.successMessage.set('');
     }
 
-    if (!/^\d{10}$/.test(this.mobile)) {
-      this.errorMessage.set('Please enter a valid 10-digit mobile number');
-      return;
+    async onSubmit() {
+        this.clearMessages();
+
+        // Validate form
+        if (!this.mobile || !this.name) {
+            this.errorMessage.set('Please fill in all required fields');
+            return;
+        }
+
+        if (!/^\d{10}$/.test(this.mobile)) {
+            this.errorMessage.set('Please enter a valid 10-digit mobile number');
+            return;
+        }
+
+        this.isLoading.set(true);
+
+        try {
+            const loginRequest: LoginRequest = {
+                mobile: this.mobile,
+                name: this.name,
+                email: this.email || ''
+            };
+
+            const response = await this.userService.login(loginRequest);
+
+            if (response.success && response.user) {
+                this.successMessage.set('Login successful! Redirecting...');
+
+                // Store user data with proper format for UserService
+                const userProfile = {
+                    userId: response.user.userId.toString(),
+                    name: response.user.name,
+                    mobile: response.user.mobile,
+                    token: response.token || '',
+                    loginTime: Date.now(),
+                    expiresAt: Date.now() + (5 * 60 * 60 * 1000), // 5 hours
+                    userRoleType: response.user.userRoleType
+                };
+
+                // Store in both formats for compatibility
+                localStorage.setItem('liveWebinar-user', JSON.stringify(userProfile));
+                localStorage.setItem('liveWebinar-token', response.token || '');
+
+                // Role-based redirect
+                setTimeout(() => {
+                    this.redirectBasedOnRole(response.user!.userRoleType);
+                }, 1500);
+            } else {
+                this.errorMessage.set(response.message);
+            }
+        } catch (error: any) {
+            console.error('Login error:', error);
+            this.errorMessage.set(error.message || 'Login failed. Please try again.');
+        } finally {
+            this.isLoading.set(false);
+        }
     }
 
-    this.isLoading.set(true);
-
-    try {
-      const loginRequest: LoginRequest = {
-        mobile: this.mobile,
-        name: this.name,
-        email: this.email || ''
-      };
-
-      const response = await this.userService.login(loginRequest);
-
-      if (response.success) {
-        this.successMessage.set('Login successful! Redirecting...');
-        
-        // Store user data with proper format for UserService
-        const userProfile = {
-          userId: response.user?.userId.toString() || '',
-          name: response.user?.name || '',
-          mobile: response.user?.mobile || '',
-          token: response.token || '',
-          loginTime: Date.now(),
-          expiresAt: Date.now() + (5 * 60 * 60 * 1000) // 5 hours
-        };
-
-        // Store in both formats for compatibility
-        localStorage.setItem('liveWebinar-user', JSON.stringify(userProfile));
-        localStorage.setItem('liveWebinar-token', response.token || '');
-        
-        // Single unified redirect to dashboard - let the dashboard handle role-based content
-        setTimeout(() => {
-          this.router.navigate(['/dashboard']);
-        }, 1500);
-      } else {
-        this.errorMessage.set(response.message);
-      }
-    } catch (error: any) {
-      console.error('Login error:', error);
-      this.errorMessage.set(error.message || 'Login failed. Please try again.');
-    } finally {
-      this.isLoading.set(false);
+    private redirectBasedOnRole(role: UserRole) {
+        switch (role) {
+            case UserRole.Admin:
+                console.log('🎤 Redirecting to dashboard for admin/host');
+                this.router.navigate(['/dashboard']);
+                break;
+            case UserRole.Host:
+                console.log('🎤 Redirecting to viwer for host');
+                this.router.navigate(['/viewer']);
+                break;
+            case UserRole.Guest:
+            default:
+                console.log('👥 Redirecting to viewer for guest');
+                this.router.navigate(['/dashboard']);
+                break;
+        }
     }
-  }
 }

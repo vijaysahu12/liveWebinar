@@ -5,32 +5,32 @@ import { Router } from '@angular/router';
 import { UserService } from '../services/user.service';
 import { SignalrService } from '../services/signalr.service';
 import { Subscription } from 'rxjs';
-import { 
-  DashboardResponse, 
-  WebinarScheduleDto, 
-  UserRole, 
-  WebinarStatus, 
-  SubscriptionType,
-  CreateWebinarRequest,
-  AdminUserInfo,
-  AdminCreateUserRequest,
-  AdminUpdateUserRequest
+import {
+    DashboardResponse,
+    WebinarScheduleDto,
+    UserRole,
+    WebinarStatus,
+    SubscriptionType,
+    CreateWebinarRequest,
+    AdminUserInfo,
+    AdminCreateUserRequest,
+    AdminUpdateUserRequest
 } from '../models/user.models';
 
 // Chat interface for guest view
 interface ChatMessage {
-  id: string;
-  username: string;
-  message: string;
-  timestamp: Date;
-  userId: string;
+    id: string;
+    username: string;
+    message: string;
+    timestamp: Date;
+    userId: string;
 }
 
 @Component({
-  selector: 'app-dashboard',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
+    selector: 'app-dashboard',
+    standalone: true,
+    imports: [CommonModule, FormsModule],
+    template: `
     <div class="dashboard-container">
       <!-- Header -->
       <header class="dashboard-header">
@@ -692,7 +692,7 @@ interface ChatMessage {
       </div>
     }
   `,
-  styles: [`
+    styles: [`
     /* Dashboard Container */
     .dashboard-container {
       min-height: 100vh;
@@ -2045,595 +2045,601 @@ interface ChatMessage {
   `]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  dashboard = signal<DashboardResponse | null>(null);
-  loading = signal(true);
-  error = signal('');
-  showCreateWebinar = signal(false);
-  showCreatePoll = signal(false); // Add poll creation modal
-  
-  // User Management signals
-  showUserManagement = signal(false);
-  users = signal<AdminUserInfo[]>([]);
-  usersLoading = signal(false);
-  usersError = signal('');
-  showCreateUser = signal(false);
-  editingUser = signal<AdminUserInfo | null>(null);
-  totalUsers = signal(0);
-  currentPage = signal(1);
-  pageSize = 10;
+    dashboard = signal<DashboardResponse | null>(null);
+    loading = signal(true);
+    error = signal('');
+    showCreateWebinar = signal(false);
+    showCreatePoll = signal(false); // Add poll creation modal
 
-  // Chat properties for guest view
-  chatMessages = signal<ChatMessage[]>([]);
-  currentMessage = '';
-  
-  // SignalR properties
-  signalrConnected = signal(false);
-  signalrSubscriptions: Subscription[] = [];
-  webinarId = '1'; // Default webinar ID for the live session
-  
-  // Poll creation properties
-  newPoll = {
-    question: '',
-    options: ['', ''],
-    durationSeconds: 60
-  };
-  
-  newWebinar: CreateWebinarRequest = {
-    title: '',
-    description: '',
-    scheduledDateTime: '',
-    durationMinutes: 90,
-    thumbnailUrl: '',
-    streamUrl: '',
-    requiredSubscription: SubscriptionType.Free,
-    price: 0
-  };
+    // User Management signals
+    showUserManagement = signal(false);
+    users = signal<AdminUserInfo[]>([]);
+    usersLoading = signal(false);
+    usersError = signal('');
+    showCreateUser = signal(false);
+    editingUser = signal<AdminUserInfo | null>(null);
+    totalUsers = signal(0);
+    currentPage = signal(1);
+    pageSize = 10;
 
-  newUser: AdminCreateUserRequest = {
-    name: '',
-    mobile: '',
-    email: '',
-    city: '',
-    state: '',
-    country: '',
-    userRoleType: UserRole.Guest,
-    isActive: true
-  };
+    // Chat properties for guest view
+    chatMessages = signal<ChatMessage[]>([]);
+    currentMessage = '';
 
-  // Expose enums to template
-  SubscriptionType = SubscriptionType;
-  WebinarStatus = WebinarStatus;
-  UserRole = UserRole;
-  Math = Math;
+    // SignalR properties
+    signalrConnected = signal(false);
+    signalrSubscriptions: Subscription[] = [];
+    webinarId = '1'; // Default webinar ID for the live session
 
-  constructor(
-    private userService: UserService,
-    private router: Router,
-    private signalrService: SignalrService,
-    @Inject(PLATFORM_ID) private platformId: Object
-  ) {}
+    // Poll creation properties
+    newPoll = {
+        question: '',
+        options: ['', ''],
+        durationSeconds: 60
+    };
 
-  async ngOnInit() {
-    await this.loadDashboard();
-    // Initialize SignalR for guest users to enable real-time chat
-    if (this.isGuest()) {
-      this.initializeSignalR();
+    newWebinar: CreateWebinarRequest = {
+        title: '',
+        description: '',
+        scheduledDateTime: '',
+        durationMinutes: 90,
+        thumbnailUrl: '',
+        streamUrl: '',
+        requiredSubscription: SubscriptionType.Free,
+        price: 0
+    };
+
+    newUser: AdminCreateUserRequest = {
+        name: '',
+        mobile: '',
+        email: '',
+        city: '',
+        state: '',
+        country: '',
+        userRoleType: UserRole.Guest,
+        isActive: true
+    };
+
+    // Expose enums to template
+    SubscriptionType = SubscriptionType;
+    WebinarStatus = WebinarStatus;
+    UserRole = UserRole;
+    Math = Math;
+
+    constructor(
+        private userService: UserService,
+        private router: Router,
+        private signalrService: SignalrService,
+        @Inject(PLATFORM_ID) private platformId: Object
+    ) { }
+
+    async ngOnInit() {
+          debugger;
+        await this.loadDashboard();
+      
+        // Redirect guests to viewer page for better experience
+        if (this.isGuest()) {
+            console.log('👥 Guest user detected, redirecting to viewer page');
+            this.router.navigate(['/dashboard']);
+            this.initializeSignalR();
+
+            return;
+        }
     }
-  }
 
-  async loadDashboard() {
-    this.loading.set(true);
-    this.error.set('');
+    async loadDashboard() {
+        this.loading.set(true);
+        this.error.set('');
 
-    try {
-      const userData = localStorage.getItem('liveWebinar-user');
-      if (!userData) {
-        console.log('No user data found, redirecting to login');
-        this.router.navigate(['/login']);
-        return;
-      }
-
-      const user = JSON.parse(userData);
-      console.log('Loading dashboard for user:', user);
-      
-      // First check if backend is accessible
-      try {
-        const healthCheck = await fetch('http://localhost:5021/api/webinar/dashboard/' + user.userId, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          signal: AbortSignal.timeout(5000) // 5 second timeout
-        });
-
-        if (!healthCheck.ok) {
-          throw new Error(`Backend server error: ${healthCheck.status} ${healthCheck.statusText}`);
-        }
-
-        const dashboard = await healthCheck.json();
-        console.log('Dashboard data received:', dashboard);
-        this.dashboard.set(dashboard);
-      } catch (fetchError: any) {
-        // If fetch fails, try the UserService method as fallback
-        console.log('Direct fetch failed, trying UserService:', fetchError.message);
         try {
-          const dashboard = await this.userService.getUserDashboard(user.userId);
-          this.dashboard.set(dashboard);
-        } catch (serviceError: any) {
-          throw new Error('Both fetch and service failed: ' + serviceError.message);
-        }
-      }
+            const userData = localStorage.getItem('liveWebinar-user');
+            if (!userData) {
+                console.log('No user data found, redirecting to login');
+                this.router.navigate(['/login']);
+                return;
+            }
 
-    } catch (error: any) {
-      console.error('Dashboard loading error:', error);
-      
-      if (error.name === 'TypeError' || error.message.includes('fetch')) {
-        this.error.set(`Unable to connect to server at http://localhost:5021. 
+            const user = JSON.parse(userData);
+            console.log('Loading dashboard for user:', user);
+
+            // First check if backend is accessible
+            try {
+                const healthCheck = await fetch('http://localhost:5021/api/webinar/dashboard/' + user.userId, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    signal: AbortSignal.timeout(5000) // 5 second timeout
+                });
+
+                if (!healthCheck.ok) {
+                    throw new Error(`Backend server error: ${healthCheck.status} ${healthCheck.statusText}`);
+                }
+
+                const dashboard = await healthCheck.json();
+                console.log('Dashboard data received:', dashboard);
+                this.dashboard.set(dashboard);
+            } catch (fetchError: any) {
+                // If fetch fails, try the UserService method as fallback
+                console.log('Direct fetch failed, trying UserService:', fetchError.message);
+                try {
+                    const dashboard = await this.userService.getUserDashboard(user.userId);
+                    this.dashboard.set(dashboard);
+                } catch (serviceError: any) {
+                    throw new Error('Both fetch and service failed: ' + serviceError.message);
+                }
+            }
+
+        } catch (error: any) {
+            console.error('Dashboard loading error:', error);
+
+            if (error.name === 'TypeError' || error.message.includes('fetch')) {
+                this.error.set(`Unable to connect to server at http://localhost:5021. 
         \nPlease ensure:
         \n1. Backend server is running
         \n2. No firewall blocking port 5021
         \n3. CORS is properly configured
         \n\nDetailed error: ${error.message}`);
-      } else if (error.name === 'TimeoutError') {
-        this.error.set('Server response timeout. The backend may be starting up, please wait and try again.');
-      } else {
-        this.error.set(error.message || 'Failed to load dashboard');
-      }
-    } finally {
-      this.loading.set(false);
-    }
-  }
-
-  isHostOrAdmin(): boolean {
-    const role = this.dashboard()?.user?.userRoleType;
-    return role === UserRole.Host || role === UserRole.Admin;
-  }
-
-  getRoleClass(): string {
-    const role = this.dashboard()?.user?.userRoleType;
-    return role === UserRole.Admin ? 'admin' : role === UserRole.Host ? 'host' : 'guest';
-  }
-
-  getRoleText(): string {
-    const role = this.dashboard()?.user?.userRoleType;
-    return role === UserRole.Admin ? '👑 Admin' : role === UserRole.Host ? '🎤 Host' : '👥 Viewer';
-  }
-
-  getStatusClass(status: WebinarStatus): string {
-    switch (status) {
-      case WebinarStatus.Live: return 'live';
-      case WebinarStatus.Completed: return 'completed';
-      case WebinarStatus.Cancelled: return 'cancelled';
-      default: return 'scheduled';
-    }
-  }
-
-  getStatusText(status: WebinarStatus): string {
-    switch (status) {
-      case WebinarStatus.Live: return 'LIVE';
-      case WebinarStatus.Completed: return 'Completed';
-      case WebinarStatus.Cancelled: return 'Cancelled';
-      default: return 'Scheduled';
-    }
-  }
-
-  // Poll creation methods
-  addOption() {
-    if (this.newPoll.options.length < 5) {
-      this.newPoll.options.push('');
-    }
-  }
-
-  removeOption(index: number) {
-    if (this.newPoll.options.length > 2) {
-      this.newPoll.options.splice(index, 1);
-    }
-  }
-
-  isPollFormValid(): boolean {
-    return !!(this.newPoll.question.trim() && 
-              this.newPoll.options.every(opt => opt.trim()) &&
-              this.newPoll.options.length >= 2);
-  }
-
-  async createPoll() {
-    if (!this.isPollFormValid()) {
-      return;
+            } else if (error.name === 'TimeoutError') {
+                this.error.set('Server response timeout. The backend may be starting up, please wait and try again.');
+            } else {
+                this.error.set(error.message || 'Failed to load dashboard');
+            }
+        } finally {
+            this.loading.set(false);
+        }
     }
 
-    try {
-      // Get user data to verify role
-      const currentUser = this.dashboard()?.user;
-      if (!currentUser) {
-        console.error('No user data available');
-        return;
-      }
-
-      // Check if user is host or admin
-      if (currentUser.userRoleType !== UserRole.Host && currentUser.userRoleType !== UserRole.Admin) {
-        console.error('Only hosts and admins can create polls');
-        return;
-      }
-
-      // Filter out empty options and trim
-      const validOptions = this.newPoll.options
-        .map(opt => opt.trim())
-        .filter(opt => opt.length > 0);
-
-      // Call SignalR service to create poll
-      if (this.signalrService && this.signalrService.connection && this.signalrService.connection.state === 'Connected') {
-        await this.signalrService.connection.invoke('CreatePoll', 
-          this.webinarId, 
-          this.newPoll.question.trim(), 
-          validOptions, 
-          this.newPoll.durationSeconds
-        );
-        
-        console.log('📊 Poll created successfully');
-        
-        // Reset form and close modal
-        this.resetPollForm();
-        this.showCreatePoll.set(false);
-        
-      } else {
-        console.error('SignalR connection not available');
-      }
-    } catch (error) {
-      console.error('Error creating poll:', error);
-    }
-  }
-
-  private resetPollForm() {
-    this.newPoll = {
-      question: '',
-      options: ['', ''],
-      durationSeconds: 60
-    };
-  }
-
-  formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleString();
-  }
-
-  async createWebinar() {
-    try {
-      const userData = localStorage.getItem('liveWebinar-user');
-      if (!userData) return;
-
-      const user = JSON.parse(userData);
-      await this.userService.createWebinar(this.newWebinar, user.userId);
-      
-      this.showCreateWebinar.set(false);
-      this.resetNewWebinar();
-      await this.loadDashboard();
-    } catch (error: any) {
-      alert('Failed to create webinar: ' + error.message);
-    }
-  }
-
-  resetNewWebinar() {
-    this.newWebinar = {
-      title: '',
-      description: '',
-      scheduledDateTime: '',
-      durationMinutes: 90,
-      thumbnailUrl: '',
-      streamUrl: '',
-      requiredSubscription: SubscriptionType.Free,
-      price: 0
-    };
-  }
-
-  joinWebinar(webinarId: number) {
-    this.router.navigate(['/viewer'], { queryParams: { webinarId } });
-  }
-
-  manageWebinar(webinarId: number) {
-    // Navigate to webinar management page
-    this.router.navigate(['/viewer'], { queryParams: { webinarId, mode: 'host' } });
-  }
-
-  async registerForWebinar(webinarId: number) {
-    try {
-      const userData = localStorage.getItem('liveWebinar-user');
-      if (!userData) return;
-
-      const user = JSON.parse(userData);
-      await this.userService.registerForWebinar({
-        webinarId,
-        subscriptionType: SubscriptionType.Free,
-        amountPaid: 0
-      }, user.userId);
-      
-      await this.loadDashboard();
-    } catch (error: any) {
-      alert('Failed to register: ' + error.message);
-    }
-  }
-
-  // User Management Methods
-  isAdmin(): boolean {
-    const role = this.dashboard()?.user?.userRoleType;
-    return role === UserRole.Admin;
-  }
-
-  async showUsers() {
-    if (!this.isAdmin()) {
-      alert('Admin access required');
-      return;
-    }
-    
-    this.showUserManagement.set(true);
-    await this.loadUsers();
-  }
-
-  async loadUsers() {
-    if (!this.isAdmin()) return;
-    
-    this.usersLoading.set(true);
-    this.usersError.set('');
-    
-    try {
-      const response = await this.userService.getAllUsers(this.currentPage(), this.pageSize);
-      this.users.set(response.users);
-      this.totalUsers.set(response.totalCount);
-    } catch (error: any) {
-      this.usersError.set(error.message || 'Failed to load users');
-    } finally {
-      this.usersLoading.set(false);
-    }
-  }
-
-  async createUser() {
-    if (!this.isAdmin()) {
-      alert('Admin access required');
-      return;
+    isHostOrAdmin(): boolean {
+        const role = this.dashboard()?.user?.userRoleType;
+        return role === UserRole.Host || role === UserRole.Admin;
     }
 
-    if (!this.newUser.name || !this.newUser.mobile) {
-      alert('Name and mobile are required');
-      return;
+    getRoleClass(): string {
+        const role = this.dashboard()?.user?.userRoleType;
+        return role === UserRole.Admin ? 'admin' : role === UserRole.Host ? 'host' : 'guest';
     }
 
-    try {
-      await this.userService.createUser(this.newUser);
-      this.showCreateUser.set(false);
-      this.resetNewUser();
-      await this.loadUsers();
-      alert('User created successfully');
-    } catch (error: any) {
-      alert('Failed to create user: ' + error.message);
-    }
-  }
-
-  editUser(user: AdminUserInfo) {
-    this.editingUser.set({ ...user });
-  }
-
-  async updateUser() {
-    const user = this.editingUser();
-    if (!user || !this.isAdmin()) return;
-
-    try {
-      const updateData: AdminUpdateUserRequest = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        city: user.city,
-        state: user.state,
-        country: user.country,
-        userRoleType: user.userRoleType,
-        isActive: user.isActive
-      };
-
-      await this.userService.updateUser(updateData);
-      this.editingUser.set(null);
-      await this.loadUsers();
-      alert('User updated successfully');
-    } catch (error: any) {
-      alert('Failed to update user: ' + error.message);
-    }
-  }
-
-  async deleteUser(userId: number) {
-    if (!this.isAdmin()) {
-      alert('Admin access required');
-      return;
+    getRoleText(): string {
+        const role = this.dashboard()?.user?.userRoleType;
+        return role === UserRole.Admin ? '👑 Admin' : role === UserRole.Host ? '🎤 Host' : '👥 Viewer';
     }
 
-    if (!confirm('Are you sure you want to delete this user?')) {
-      return;
+    getStatusClass(status: WebinarStatus): string {
+        switch (status) {
+            case WebinarStatus.Live: return 'live';
+            case WebinarStatus.Completed: return 'completed';
+            case WebinarStatus.Cancelled: return 'cancelled';
+            default: return 'scheduled';
+        }
     }
 
-    try {
-      await this.userService.deleteUser(userId);
-      await this.loadUsers();
-      alert('User deleted successfully');
-    } catch (error: any) {
-      alert('Failed to delete user: ' + error.message);
-    }
-  }
-
-  resetNewUser() {
-    this.newUser = {
-      name: '',
-      mobile: '',
-      email: '',
-      city: '',
-      state: '',
-      country: '',
-      userRoleType: UserRole.Guest,
-      isActive: true
-    };
-  }
-
-  cancelUserEdit() {
-    this.editingUser.set(null);
-  }
-
-  getRoleOptions() {
-    return [
-      { value: UserRole.Guest, label: 'Guest' },
-      { value: UserRole.Host, label: 'Host' },
-      { value: UserRole.Admin, label: 'Admin' }
-    ];
-  }
-
-  async nextPage() {
-    if ((this.currentPage() * this.pageSize) < this.totalUsers()) {
-      this.currentPage.set(this.currentPage() + 1);
-      await this.loadUsers();
-    }
-  }
-
-  async previousPage() {
-    if (this.currentPage() > 1) {
-      this.currentPage.set(this.currentPage() - 1);
-      await this.loadUsers();
-    }
-  }
-
-  logout() {
-    localStorage.removeItem('liveWebinar-user');
-    localStorage.removeItem('liveWebinar-token');
-    this.router.navigate(['/login']);
-  }
-
-  // Guest role checking method
-  isGuest(): boolean {
-    const role = this.dashboard()?.user?.userRoleType;
-    return role === UserRole.Guest;
-  }
-
-  // Lifecycle method
-  ngOnDestroy() {
-    this.signalrSubscriptions.forEach(sub => sub.unsubscribe());
-    this.signalrService.disconnect();
-  }
-
-  // SignalR Methods
-  initializeSignalR() {
-    if (!isPlatformBrowser(this.platformId)) {
-      console.log('⚠️ Skipping SignalR initialization - not in browser environment');
-      return;
+    getStatusText(status: WebinarStatus): string {
+        switch (status) {
+            case WebinarStatus.Live: return 'LIVE';
+            case WebinarStatus.Completed: return 'Completed';
+            case WebinarStatus.Cancelled: return 'Cancelled';
+            default: return 'Scheduled';
+        }
     }
 
-    console.log('🔗 Initializing SignalR connection for chat...');
-    
-    // Start SignalR connection with user ID
-    const userId = this.getUserId() || this.generateGuestUserId();
-    this.signalrService.startConnection(this.webinarId, userId, 'guest');
-
-    // Subscribe to chat messages
-    const chatSub = this.signalrService.chatMessage$.subscribe((message: ChatMessage) => {
-      console.log('💬 Received chat message via SignalR:', message);
-      
-      // Check for duplicate messages by ID
-      const existingMessage = this.chatMessages().find(m => m.id === message.id);
-      if (!existingMessage) {
-        this.chatMessages.update(messages => [...messages, message]);
-        // Auto-scroll to bottom when new message is received
-        setTimeout(() => this.scrollToBottom(), 100);
-      } else {
-        console.log('⚠️ Duplicate message ignored:', message.id);
-      }
-    });
-
-    this.signalrSubscriptions.push(chatSub);
-
-    // Monitor connection status
-    const statusSub = this.signalrService.connectionStatus$.subscribe(status => {
-      console.log('🔗 SignalR connection status:', status);
-      this.signalrConnected.set(status === 'Connected');
-    });
-
-    this.signalrSubscriptions.push(statusSub);
-  }
-
-  generateGuestUserId(): string {
-    // Generate a unique guest user ID (use timestamp + random)
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    return `${900000000 + random}`;
-  }
-
-  testSignalRConnection() {
-    console.log('🔧 Testing SignalR connection...');
-    console.log('🔗 Connection state:', this.signalrConnected());
-    
-    if (this.signalrConnected()) {
-      const testMessage: ChatMessage = {
-        id: Date.now().toString(),
-        username: 'Test User',
-        message: 'Test message from SignalR',
-        timestamp: new Date(),
-        userId: this.getUserId()
-      };
-      
-      console.log('📤 Sending test message:', testMessage);
-      this.signalrService.sendChatMessage(this.webinarId, testMessage);
-    } else {
-      console.warn('⚠️ SignalR not connected');
-    }
-  }
-
-  // Get current user ID for chat
-  getUserId(): string {
-    const userId = this.dashboard()?.user?.userId?.toString();
-    if (userId && userId.trim() !== '') {
-      return userId;
-    }
-    // Generate numeric guest user ID for SignalR compatibility
-    return this.generateGuestUserId();
-  }
-
-  // Chat functionality for guest view
-  sendChatMessage() {
-    if (!this.currentMessage.trim()) return;
-
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      username: this.dashboard()?.user?.name || 'Anonymous',
-      message: this.currentMessage.trim(),
-      timestamp: new Date(),
-      userId: this.getUserId()
-    };
-
-    // Send message via SignalR to sync with other users
-    if (this.signalrConnected()) {
-      console.log('💬 Sending chat message via SignalR:', newMessage);
-      // Only send via SignalR - don't add locally (it will come back via SignalR)
-      this.signalrService.sendChatMessage(this.webinarId, newMessage);
-    } else {
-      console.warn('⚠️ SignalR not connected, adding message locally only');
-      // Add to local chat if SignalR is not connected
-      this.chatMessages.update(messages => [...messages, newMessage]);
-      this.scrollToBottom();
+    // Poll creation methods
+    addOption() {
+        if (this.newPoll.options.length < 5) {
+            this.newPoll.options.push('');
+        }
     }
 
-    this.currentMessage = '';
-    console.log('💬 Chat message processed:', newMessage);
-  }
-
-  // Auto-scroll to bottom of chat messages
-  scrollToBottom() {
-    if (!isPlatformBrowser(this.platformId)) return;
-    
-    try {
-      const chatMessages = document.querySelector('.chat-messages');
-      if (chatMessages) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }
-    } catch (error) {
-      console.log('⚠️ Could not scroll to bottom:', error);
+    removeOption(index: number) {
+        if (this.newPoll.options.length > 2) {
+            this.newPoll.options.splice(index, 1);
+        }
     }
-  }
 
-  onChatKeyPress(event: KeyboardEvent) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      this.sendChatMessage();
+    isPollFormValid(): boolean {
+        return !!(this.newPoll.question.trim() &&
+            this.newPoll.options.every(opt => opt.trim()) &&
+            this.newPoll.options.length >= 2);
     }
-  }
+
+    async createPoll() {
+        if (!this.isPollFormValid()) {
+            return;
+        }
+
+        try {
+            // Get user data to verify role
+            const currentUser = this.dashboard()?.user;
+            if (!currentUser) {
+                console.error('No user data available');
+                return;
+            }
+
+            // Check if user is host or admin
+            if (currentUser.userRoleType !== UserRole.Host && currentUser.userRoleType !== UserRole.Admin) {
+                console.error('Only hosts and admins can create polls');
+                return;
+            }
+
+            // Filter out empty options and trim
+            const validOptions = this.newPoll.options
+                .map(opt => opt.trim())
+                .filter(opt => opt.length > 0);
+
+            // Call SignalR service to create poll
+            if (this.signalrService && this.signalrService.connection && this.signalrService.connection.state === 'Connected') {
+                await this.signalrService.connection.invoke('CreatePoll',
+                    this.webinarId,
+                    this.newPoll.question.trim(),
+                    validOptions,
+                    this.newPoll.durationSeconds
+                );
+
+                console.log('📊 Poll created successfully');
+
+                // Reset form and close modal
+                this.resetPollForm();
+                this.showCreatePoll.set(false);
+
+            } else {
+                console.error('SignalR connection not available');
+            }
+        } catch (error) {
+            console.error('Error creating poll:', error);
+        }
+    }
+
+    private resetPollForm() {
+        this.newPoll = {
+            question: '',
+            options: ['', ''],
+            durationSeconds: 60
+        };
+    }
+
+    formatDate(dateString: string): string {
+        return new Date(dateString).toLocaleString();
+    }
+
+    async createWebinar() {
+        try {
+            const userData = localStorage.getItem('liveWebinar-user');
+            if (!userData) return;
+
+            const user = JSON.parse(userData);
+            await this.userService.createWebinar(this.newWebinar, user.userId);
+
+            this.showCreateWebinar.set(false);
+            this.resetNewWebinar();
+            await this.loadDashboard();
+        } catch (error: any) {
+            alert('Failed to create webinar: ' + error.message);
+        }
+    }
+
+    resetNewWebinar() {
+        this.newWebinar = {
+            title: '',
+            description: '',
+            scheduledDateTime: '',
+            durationMinutes: 90,
+            thumbnailUrl: '',
+            streamUrl: '',
+            requiredSubscription: SubscriptionType.Free,
+            price: 0
+        };
+    }
+
+    joinWebinar(webinarId: number) {
+        this.router.navigate(['/viewer'], { queryParams: { webinarId } });
+    }
+
+    manageWebinar(webinarId: number) {
+        // Navigate to webinar management page
+        this.router.navigate(['/viewer'], { queryParams: { webinarId, mode: 'host' } });
+    }
+
+    async registerForWebinar(webinarId: number) {
+        try {
+            const userData = localStorage.getItem('liveWebinar-user');
+            if (!userData) return;
+
+            const user = JSON.parse(userData);
+            await this.userService.registerForWebinar({
+                webinarId,
+                subscriptionType: SubscriptionType.Free,
+                amountPaid: 0
+            }, user.userId);
+
+            await this.loadDashboard();
+        } catch (error: any) {
+            alert('Failed to register: ' + error.message);
+        }
+    }
+
+    // User Management Methods
+    isAdmin(): boolean {
+        const role = this.dashboard()?.user?.userRoleType;
+        return role === UserRole.Admin;
+    }
+
+    async showUsers() {
+        if (!this.isAdmin()) {
+            alert('Admin access required');
+            return;
+        }
+
+        this.showUserManagement.set(true);
+        await this.loadUsers();
+    }
+
+    async loadUsers() {
+        if (!this.isAdmin()) return;
+
+        this.usersLoading.set(true);
+        this.usersError.set('');
+
+        try {
+            const response = await this.userService.getAllUsers(this.currentPage(), this.pageSize);
+            this.users.set(response.users);
+            this.totalUsers.set(response.totalCount);
+        } catch (error: any) {
+            this.usersError.set(error.message || 'Failed to load users');
+        } finally {
+            this.usersLoading.set(false);
+        }
+    }
+
+    async createUser() {
+        if (!this.isAdmin()) {
+            alert('Admin access required');
+            return;
+        }
+
+        if (!this.newUser.name || !this.newUser.mobile) {
+            alert('Name and mobile are required');
+            return;
+        }
+
+        try {
+            await this.userService.createUser(this.newUser);
+            this.showCreateUser.set(false);
+            this.resetNewUser();
+            await this.loadUsers();
+            alert('User created successfully');
+        } catch (error: any) {
+            alert('Failed to create user: ' + error.message);
+        }
+    }
+
+    editUser(user: AdminUserInfo) {
+        this.editingUser.set({ ...user });
+    }
+
+    async updateUser() {
+        const user = this.editingUser();
+        if (!user || !this.isAdmin()) return;
+
+        try {
+            const updateData: AdminUpdateUserRequest = {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                city: user.city,
+                state: user.state,
+                country: user.country,
+                userRoleType: user.userRoleType,
+                isActive: user.isActive
+            };
+
+            await this.userService.updateUser(updateData);
+            this.editingUser.set(null);
+            await this.loadUsers();
+            alert('User updated successfully');
+        } catch (error: any) {
+            alert('Failed to update user: ' + error.message);
+        }
+    }
+
+    async deleteUser(userId: number) {
+        if (!this.isAdmin()) {
+            alert('Admin access required');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to delete this user?')) {
+            return;
+        }
+
+        try {
+            await this.userService.deleteUser(userId);
+            await this.loadUsers();
+            alert('User deleted successfully');
+        } catch (error: any) {
+            alert('Failed to delete user: ' + error.message);
+        }
+    }
+
+    resetNewUser() {
+        this.newUser = {
+            name: '',
+            mobile: '',
+            email: '',
+            city: '',
+            state: '',
+            country: '',
+            userRoleType: UserRole.Guest,
+            isActive: true
+        };
+    }
+
+    cancelUserEdit() {
+        this.editingUser.set(null);
+    }
+
+    getRoleOptions() {
+        return [
+            { value: UserRole.Guest, label: 'Guest' },
+            { value: UserRole.Host, label: 'Host' },
+            { value: UserRole.Admin, label: 'Admin' }
+        ];
+    }
+
+    async nextPage() {
+        if ((this.currentPage() * this.pageSize) < this.totalUsers()) {
+            this.currentPage.set(this.currentPage() + 1);
+            await this.loadUsers();
+        }
+    }
+
+    async previousPage() {
+        if (this.currentPage() > 1) {
+            this.currentPage.set(this.currentPage() - 1);
+            await this.loadUsers();
+        }
+    }
+
+    logout() {
+        localStorage.removeItem('liveWebinar-user');
+        localStorage.removeItem('liveWebinar-token');
+        this.router.navigate(['/login']);
+    }
+
+    // Guest role checking method
+    isGuest(): boolean {
+        const role = this.dashboard()?.user?.userRoleType;
+        return role === UserRole.Guest;
+    }
+
+    // Lifecycle method
+    ngOnDestroy() {
+        this.signalrSubscriptions.forEach(sub => sub.unsubscribe());
+        this.signalrService.disconnect();
+    }
+
+    // SignalR Methods
+    initializeSignalR() {
+        if (!isPlatformBrowser(this.platformId)) {
+            console.log('⚠️ Skipping SignalR initialization - not in browser environment');
+            return;
+        }
+
+        console.log('🔗 Initializing SignalR connection for chat...');
+
+        // Start SignalR connection with user ID
+        const userId = this.getUserId() || this.generateGuestUserId();
+        this.signalrService.startConnection(this.webinarId, userId, 'guest');
+
+        // Subscribe to chat messages
+        const chatSub = this.signalrService.chatMessage$.subscribe((message: ChatMessage) => {
+            console.log('💬 Received chat message via SignalR:', message);
+
+            // Check for duplicate messages by ID
+            const existingMessage = this.chatMessages().find(m => m.id === message.id);
+            if (!existingMessage) {
+                this.chatMessages.update(messages => [...messages, message]);
+                // Auto-scroll to bottom when new message is received
+                setTimeout(() => this.scrollToBottom(), 100);
+            } else {
+                console.log('⚠️ Duplicate message ignored:', message.id);
+            }
+        });
+
+        this.signalrSubscriptions.push(chatSub);
+
+        // Monitor connection status
+        const statusSub = this.signalrService.connectionStatus$.subscribe(status => {
+            console.log('🔗 SignalR connection status:', status);
+            this.signalrConnected.set(status === 'Connected');
+        });
+
+        this.signalrSubscriptions.push(statusSub);
+    }
+
+    generateGuestUserId(): string {
+        // Generate a unique guest user ID (use timestamp + random)
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 1000);
+        return `${900000000 + random}`;
+    }
+
+    testSignalRConnection() {
+        console.log('🔧 Testing SignalR connection...');
+        console.log('🔗 Connection state:', this.signalrConnected());
+
+        if (this.signalrConnected()) {
+            const testMessage: ChatMessage = {
+                id: Date.now().toString(),
+                username: 'Test User',
+                message: 'Test message from SignalR',
+                timestamp: new Date(),
+                userId: this.getUserId()
+            };
+
+            console.log('📤 Sending test message:', testMessage);
+            this.signalrService.sendChatMessage(this.webinarId, testMessage);
+        } else {
+            console.warn('⚠️ SignalR not connected');
+        }
+    }
+
+    // Get current user ID for chat
+    getUserId(): string {
+        const userId = this.dashboard()?.user?.userId?.toString();
+        if (userId && userId.trim() !== '') {
+            return userId;
+        }
+        // Generate numeric guest user ID for SignalR compatibility
+        return this.generateGuestUserId();
+    }
+
+    // Chat functionality for guest view
+    sendChatMessage() {
+        if (!this.currentMessage.trim()) return;
+
+        const newMessage: ChatMessage = {
+            id: Date.now().toString(),
+            username: this.dashboard()?.user?.name || 'Anonymous',
+            message: this.currentMessage.trim(),
+            timestamp: new Date(),
+            userId: this.getUserId()
+        };
+
+        // Send message via SignalR to sync with other users
+        if (this.signalrConnected()) {
+            console.log('💬 Sending chat message via SignalR:', newMessage);
+            // Only send via SignalR - don't add locally (it will come back via SignalR)
+            this.signalrService.sendChatMessage(this.webinarId, newMessage);
+        } else {
+            console.warn('⚠️ SignalR not connected, adding message locally only');
+            // Add to local chat if SignalR is not connected
+            this.chatMessages.update(messages => [...messages, newMessage]);
+            this.scrollToBottom();
+        }
+
+        this.currentMessage = '';
+        console.log('💬 Chat message processed:', newMessage);
+    }
+
+    // Auto-scroll to bottom of chat messages
+    scrollToBottom() {
+        if (!isPlatformBrowser(this.platformId)) return;
+
+        try {
+            const chatMessages = document.querySelector('.chat-messages');
+            if (chatMessages) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        } catch (error) {
+            console.log('⚠️ Could not scroll to bottom:', error);
+        }
+    }
+
+    onChatKeyPress(event: KeyboardEvent) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            this.sendChatMessage();
+        }
+    }
 }
