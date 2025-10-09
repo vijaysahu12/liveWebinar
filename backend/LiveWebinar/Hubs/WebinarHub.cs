@@ -52,7 +52,7 @@ public class WebinarHub : Hub
                                 .SendAsync("ForceDisconnect", new { 
                                     reason = "Another session started from a different location",
                                     newLocation = clientIp,
-                                    timestamp = DateTime.UtcNow 
+                                    timestamp = DateTime.Now 
                                 });
                             
                             // Remove from SignalR group
@@ -65,8 +65,8 @@ public class WebinarHub : Hub
                         
                         // Update the existing participant record with new connection details
                         existingParticipant.ConnectionId = Context.ConnectionId;
-                        existingParticipant.ConnectedAt = DateTime.UtcNow;
-                        existingParticipant.LastActiveAt = DateTime.UtcNow;
+                        existingParticipant.ConnectedAt = DateTime.Now;
+                        existingParticipant.LastActiveAt = DateTime.Now;
                         existingParticipant.IpAddress = clientIp;
                         existingParticipant.UserAgent = userAgent;
                     }
@@ -75,7 +75,7 @@ public class WebinarHub : Hub
                         Console.WriteLine("Same user reconnecting from same location - updating connection details");
                         // Same location, just update connection details
                         existingParticipant.ConnectionId = Context.ConnectionId;
-                        existingParticipant.LastActiveAt = DateTime.UtcNow;
+                        existingParticipant.LastActiveAt = DateTime.Now;
                     }
                     await _db.SaveChangesAsync();
                 }
@@ -95,8 +95,8 @@ public class WebinarHub : Hub
                     { 
                         WebinarId = webinarId, 
                         UserId = userId, 
-                        ConnectedAt = DateTime.UtcNow,
-                        LastActiveAt = DateTime.UtcNow,
+                        ConnectedAt = DateTime.Now,
+                        LastActiveAt = DateTime.Now,
                         ConnectionId = Context.ConnectionId, 
                         IpAddress = clientIp,
                         UserAgent = userAgent,
@@ -195,7 +195,7 @@ public class WebinarHub : Hub
             {
                 // Mark as inactive but keep record for session tracking
                 participant.IsActive = false;
-                participant.LastActiveAt = DateTime.UtcNow;
+                participant.LastActiveAt = DateTime.Now;
                 Console.WriteLine($"Marking participant as inactive due to connection from different location");
             }
             else
@@ -309,7 +309,7 @@ public class WebinarHub : Hub
     // Ping method for connection health check
     public async Task Ping()
     {
-        await Clients.Caller.SendAsync("Pong", DateTime.UtcNow);
+        await Clients.Caller.SendAsync("Pong", DateTime.Now);
     }
 
     // Method to send chat messages to all participants in a webinar
@@ -354,7 +354,7 @@ public class WebinarHub : Hub
                 .Include(p => p.User)
                 .FirstOrDefaultAsync(p => p.ConnectionId == senderConnectionId && p.WebinarId == webId && p.IsActive);
             
-            if (participant != null && participant.User.UserRoleType == UserRole.Guest)
+            if (participant != null && (participant.User.UserRoleType == UserRole.Host || participant.User.UserRoleType == UserRole.Admin))
             {
                 var poll = new
                 {
@@ -362,19 +362,19 @@ public class WebinarHub : Hub
                     question = question,
                     options = options.Select((option, index) => new { id = index, text = option, votes = 0 }).ToArray(),
                     duration = durationSeconds,
-                    startTime = DateTime.UtcNow,
-                    endTime = durationSeconds > 0 ? DateTime.UtcNow.AddSeconds(durationSeconds) : (DateTime?)null,
+                    startTime = DateTime.Now,
+                    endTime = durationSeconds > 0 ? DateTime.Now.AddSeconds(durationSeconds) : (DateTime?)null,
                     isActive = true,
                     totalVotes = 0,
                     allowMultiple = false
                 };
                 
                 await Clients.Group(webinarId).SendAsync("PollCreated", poll);
-                Console.WriteLine($"📊 Poll created in webinar {webinarId}: {question}");
+                Console.WriteLine($"📊 Poll created in webinar {webinarId} by {participant.User.UserRoleType}: {question}");
             }
             else
             {
-                await Clients.Caller.SendAsync("Error", "Only hosts can create polls");
+                await Clients.Caller.SendAsync("Error", "Only hosts and admins can create polls");
             }
         }
     }
@@ -396,7 +396,7 @@ public class WebinarHub : Hub
                     optionIndex = optionIndex,
                     userId = participant.UserId,
                     username = participant.User.Name,
-                    votedAt = DateTime.UtcNow
+                    votedAt = DateTime.Now
                 };
                 
                 await Clients.Group(webinarId).SendAsync("PollVote", vote);
@@ -427,7 +427,7 @@ public class WebinarHub : Hub
                     title = title,
                     description = description,
                     content = content,
-                    createdAt = DateTime.UtcNow,
+                    createdAt = DateTime.Now,
                     createdBy = participant.User.Name,
                     isActive = true
                 };
@@ -460,7 +460,7 @@ public class WebinarHub : Hub
                     username = participant.User.Name,
                     interactionType = interactionType,
                     data = data,
-                    timestamp = DateTime.UtcNow
+                    timestamp = DateTime.Now
                 };
                 
                 await Clients.Group(webinarId).SendAsync("ContentInteraction", interaction);
@@ -489,7 +489,7 @@ public class WebinarHub : Hub
                     id = Guid.NewGuid().ToString(),
                     questionText = questionText,
                     askedBy = participant.User.Name,
-                    askedAt = DateTime.UtcNow,
+                    askedAt = DateTime.Now,
                     isAnswered = false,
                     isPublic = isPublic,
                     answers = new object[0]
@@ -538,7 +538,7 @@ public class WebinarHub : Hub
                     questionId = questionId,
                     answerText = answerText,
                     answeredBy = participant.User.Name,
-                    answeredAt = DateTime.UtcNow,
+                    answeredAt = DateTime.Now,
                     isPublic = isPublic
                 };
                 

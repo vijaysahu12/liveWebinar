@@ -71,7 +71,7 @@ public class AuthController : ControllerBase
                 }
 
                 // Update user's last login
-                existingUser.LastLoginAt = DateTime.UtcNow;
+                existingUser.LastLoginAt = DateTime.Now;
                 existingUser.Name = request.Name; // Update name in case it changed
                 _context.SaveChanges();
 
@@ -97,8 +97,8 @@ public class AuthController : ControllerBase
                     Mobile = request.Mobile,
                     Email = request.Email,
                     UserRoleType = UserRole.Guest, // Default role
-                    CreatedAt = DateTime.UtcNow,
-                    LastLoginAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.Now,
+                    LastLoginAt = DateTime.Now,
                     IsActive = true
                 };
 
@@ -168,7 +168,7 @@ public class AuthController : ControllerBase
             if (user != null)
             {
                 // Update user info
-                user.LastLoginAt = DateTime.UtcNow;
+                user.LastLoginAt = DateTime.Now;
                 if (!string.IsNullOrWhiteSpace(request.Name))
                     user.Name = request.Name;
                 if (!string.IsNullOrWhiteSpace(request.Email))
@@ -185,8 +185,8 @@ public class AuthController : ControllerBase
                     Mobile = request.Mobile,
                     Email = request.Email,
                     UserRoleType = UserRole.Guest,
-                    CreatedAt = DateTime.UtcNow,
-                    LastLoginAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.Now,
+                    LastLoginAt = DateTime.Now,
                     IsActive = true
                 };
 
@@ -275,7 +275,7 @@ public class AuthController : ControllerBase
             {
                 UserId = userId,
                 Type = request.Type,
-                StartDate = DateTime.UtcNow,
+                StartDate = DateTime.Now,
                 EndDate = request.EndDate,
                 AmountPaid = request.AmountPaid,
                 PaymentTransactionId = request.PaymentTransactionId ?? string.Empty,
@@ -313,7 +313,7 @@ public class AuthController : ControllerBase
         
         return Ok(new { 
             token = token, 
-            expires = DateTime.UtcNow.AddHours(24),
+            expires = DateTime.Now.AddHours(24),
             webinarId = request.WebinarId.ToString(),
             userId = request.UserId.ToString(),
             role = "host"

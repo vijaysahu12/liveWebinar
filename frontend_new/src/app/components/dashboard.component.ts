@@ -187,9 +187,14 @@ interface ChatMessage {
             <section class="section">
               <div class="section-header">
                 <h2>🎤 Host Controls</h2>
-                <button class="create-btn" (click)="showCreateWebinar.set(true)">
-                  ➕ Create Webinar
-                </button>
+                <div class="host-actions">
+                  <button class="create-btn" (click)="showCreateWebinar.set(true)">
+                    ➕ Create Webinar
+                  </button>
+                  <button class="poll-btn" (click)="showCreatePoll.set(true)">
+                    📊 Create Poll
+                  </button>
+                </div>
               </div>
 
               @if (dashboard()?.myWebinars && dashboard()!.myWebinars.length > 0) {
@@ -623,6 +628,64 @@ interface ChatMessage {
             <div class="modal-actions">
               <button type="button" class="cancel-btn" (click)="showCreateWebinar.set(false)">Cancel</button>
               <button type="submit" class="create-btn" [disabled]="!newWebinar.title">Create Webinar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+
+    <!-- Create Poll Modal -->
+    @if (showCreatePoll()) {
+      <div class="modal-overlay" (click)="showCreatePoll.set(false)">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>📊 Create Poll</h3>
+            <button class="modal-close" (click)="showCreatePoll.set(false)">×</button>
+          </div>
+          <form (ngSubmit)="createPoll()" class="create-form">
+            <div class="form-group">
+              <label>Poll Question*</label>
+              <input type="text" [(ngModel)]="newPoll.question" name="question" required 
+                     placeholder="Enter your poll question..." class="form-input">
+            </div>
+            
+            <div class="form-group">
+              <label>Options</label>
+              @for (option of newPoll.options; track $index) {
+                <div class="option-input-group">
+                  <input type="text" [(ngModel)]="newPoll.options[$index]" 
+                         [name]="'option' + $index" required 
+                         placeholder="Option {{ $index + 1 }}" class="form-input">
+                  @if (newPoll.options.length > 2) {
+                    <button type="button" class="remove-option-btn" (click)="removeOption($index)">
+                      🗑️
+                    </button>
+                  }
+                </div>
+              }
+              @if (newPoll.options.length < 5) {
+                <button type="button" class="add-option-btn" (click)="addOption()">
+                  ➕ Add Option
+                </button>
+              }
+            </div>
+            
+            <div class="form-group">
+              <label>Duration (seconds)</label>
+              <select [(ngModel)]="newPoll.durationSeconds" name="duration" class="form-select">
+                <option [value]="0">No time limit (manual close)</option>
+                <option [value]="30">30 seconds</option>
+                <option [value]="60">1 minute</option>
+                <option [value]="120">2 minutes</option>
+                <option [value]="300">5 minutes</option>
+              </select>
+            </div>
+            
+            <div class="modal-actions">
+              <button type="button" class="cancel-btn" (click)="showCreatePoll.set(false)">Cancel</button>
+              <button type="submit" class="create-btn" [disabled]="!isPollFormValid()">
+                📊 Create Poll
+              </button>
             </div>
           </form>
         </div>
@@ -1329,6 +1392,76 @@ interface ChatMessage {
       background: #cbd5e0;
     }
 
+    /* Poll Creation Styles */
+    .host-actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .poll-btn {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .poll-btn:hover {
+      background: linear-gradient(135deg, #764ba2, #667eea);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .option-input-group {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .option-input-group input {
+      flex: 1;
+    }
+
+    .remove-option-btn {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.3s ease;
+    }
+
+    .remove-option-btn:hover {
+      background: #dc2626;
+    }
+
+    .add-option-btn {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .add-option-btn:hover {
+      background: #059669;
+      transform: translateY(-1px);
+    }
+
     /* Animations */
     @keyframes pulse {
       0%, 100% {
@@ -1916,6 +2049,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loading = signal(true);
   error = signal('');
   showCreateWebinar = signal(false);
+  showCreatePoll = signal(false); // Add poll creation modal
   
   // User Management signals
   showUserManagement = signal(false);
@@ -1936,6 +2070,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   signalrConnected = signal(false);
   signalrSubscriptions: Subscription[] = [];
   webinarId = '1'; // Default webinar ID for the live session
+  
+  // Poll creation properties
+  newPoll = {
+    question: '',
+    options: ['', ''],
+    durationSeconds: 60
+  };
   
   newWebinar: CreateWebinarRequest = {
     title: '',
@@ -2075,6 +2216,80 @@ export class DashboardComponent implements OnInit, OnDestroy {
       case WebinarStatus.Cancelled: return 'Cancelled';
       default: return 'Scheduled';
     }
+  }
+
+  // Poll creation methods
+  addOption() {
+    if (this.newPoll.options.length < 5) {
+      this.newPoll.options.push('');
+    }
+  }
+
+  removeOption(index: number) {
+    if (this.newPoll.options.length > 2) {
+      this.newPoll.options.splice(index, 1);
+    }
+  }
+
+  isPollFormValid(): boolean {
+    return !!(this.newPoll.question.trim() && 
+              this.newPoll.options.every(opt => opt.trim()) &&
+              this.newPoll.options.length >= 2);
+  }
+
+  async createPoll() {
+    if (!this.isPollFormValid()) {
+      return;
+    }
+
+    try {
+      // Get user data to verify role
+      const currentUser = this.dashboard()?.user;
+      if (!currentUser) {
+        console.error('No user data available');
+        return;
+      }
+
+      // Check if user is host or admin
+      if (currentUser.userRoleType !== UserRole.Host && currentUser.userRoleType !== UserRole.Admin) {
+        console.error('Only hosts and admins can create polls');
+        return;
+      }
+
+      // Filter out empty options and trim
+      const validOptions = this.newPoll.options
+        .map(opt => opt.trim())
+        .filter(opt => opt.length > 0);
+
+      // Call SignalR service to create poll
+      if (this.signalrService && this.signalrService.connection && this.signalrService.connection.state === 'Connected') {
+        await this.signalrService.connection.invoke('CreatePoll', 
+          this.webinarId, 
+          this.newPoll.question.trim(), 
+          validOptions, 
+          this.newPoll.durationSeconds
+        );
+        
+        console.log('📊 Poll created successfully');
+        
+        // Reset form and close modal
+        this.resetPollForm();
+        this.showCreatePoll.set(false);
+        
+      } else {
+        console.error('SignalR connection not available');
+      }
+    } catch (error) {
+      console.error('Error creating poll:', error);
+    }
+  }
+
+  private resetPollForm() {
+    this.newPoll = {
+      question: '',
+      options: ['', ''],
+      durationSeconds: 60
+    };
   }
 
   formatDate(dateString: string): string {

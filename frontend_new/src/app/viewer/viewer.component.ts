@@ -249,6 +249,7 @@ export class ViewerComponent implements OnInit {
         
         // Subscribe to engagement events
         this.sr.pollCreated$.subscribe(pollData => {
+            debugger;
             console.log('📊 Poll created received:', pollData);
             this.displayEngagementOverlay('poll', pollData);
         });
@@ -447,25 +448,26 @@ export class ViewerComponent implements OnInit {
         const question = "Did you find this session helpful?";
         const options = ["Very helpful", "Somewhat helpful", "Not helpful"];
         
-        // Create poll data structure
+        // Create poll data structure with blocking behavior
         const pollData = {
             id: 'quick-poll-' + Date.now(),
             title: 'Quick Poll',
             question: question,
             options: options.map((text, index) => ({ text, index, votes: 0 })),
-            duration: 60,
+            duration: 0, // Set to 0 for no auto-removal - requires user interaction
             totalVotes: 0,
-            createdAt: new Date()
+            createdAt: new Date(),
+            blocking: true // Add blocking flag for mandatory interaction
         };
         
-        // Show poll immediately for testing/demo purposes
-        this.displayEngagementOverlay('poll', pollData);
+        // Show blocking poll that covers the video
+        this.displayBlockingPollOverlay(pollData);
         
         // Also send to SignalR if connected
         if (this.connectionStatus() === 'Connected') {
-            this.createPoll(question, options, 60); // 60 seconds duration
+            this.createPoll(question, options, 0); // 0 duration - requires interaction
         } else {
-            console.log('📊 Poll displayed locally - SignalR not connected');
+            console.log('📊 Blocking poll displayed locally - SignalR not connected');
         }
     }
 
@@ -944,5 +946,87 @@ export class ViewerComponent implements OnInit {
         setTimeout(() => this.requestLikes(), 5000);
         setTimeout(() => this.shareDownloadQR(), 10000);
         setTimeout(() => this.makeAnnouncement('Thank You!', 'Thanks for participating!'), 15000);
+    }
+
+    // Method to display blocking poll overlay that covers the video
+    displayBlockingPollOverlay(pollData: any) {
+        console.log('🚫 displayBlockingPollOverlay called with:', pollData);
+        
+        const videoArea = document.getElementById('videoArea');
+        if (!videoArea) {
+            console.error('❌ videoArea not found!');
+            return;
+        }
+
+        // Create blocking overlay div
+        const blockingOverlay = document.createElement('div');
+        blockingOverlay.className = 'blocking-poll-overlay';
+        blockingOverlay.id = `blocking-poll-${pollData.id}`;
+
+        // Create poll content
+        const pollContent = this.createBlockingPollHTML(pollData);
+        blockingOverlay.innerHTML = pollContent;
+
+        // Add overlay to video area to block interaction
+        videoArea.appendChild(blockingOverlay);
+        
+        console.log('✅ Blocking poll overlay added to video area');
+    }
+
+    // Create HTML for blocking poll
+    private createBlockingPollHTML(data: any): string {
+        const optionsHTML = data.options.map((option: any, index: number) => 
+            `<button class="blocking-poll-option" onclick="window.viewerComponent.voteBlockingPoll('${data.id}', ${index})">
+                ${option.text}
+            </button>`
+        ).join('');
+        
+        return `
+            <div class="blocking-poll-container">
+                <div class="blocking-poll-content">
+                    <div class="blocking-poll-header">
+                        <div class="blocking-poll-title">${data.title}</div>
+                        <div class="blocking-poll-subtitle">Please answer to continue watching</div>
+                    </div>
+                    <div class="blocking-poll-question">${data.question}</div>
+                    <div class="blocking-poll-options">
+                        ${optionsHTML}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Handle voting on blocking poll
+    voteBlockingPoll(pollId: string, optionIndex: number) {
+        console.log('🗳️ Voting on blocking poll:', pollId, 'Option:', optionIndex);
+        
+        // Remove the blocking overlay
+        const blockingOverlay = document.getElementById(`blocking-poll-${pollId}`);
+        if (blockingOverlay) {
+            blockingOverlay.remove();
+            console.log('✅ Blocking poll overlay removed - user can continue watching');
+        }
+
+        // Send vote to SignalR if connected
+        if (this.connectionStatus() === 'Connected' && this.sr.connection) {
+            this.sr.connection.invoke('VotePoll', pollId, optionIndex)
+                .catch((err: any) => console.error('❌ Error voting on poll:', err));
+        }
+
+        // Show thank you message briefly
+        this.showThankYouMessage();
+    }
+
+    // Show brief thank you message after poll interaction
+    private showThankYouMessage() {
+        const thankYouData = {
+            id: 'thank-you-' + Date.now(),
+            title: 'Thank You!',
+            message: 'Your response has been recorded.',
+            duration: 3
+        };
+
+        this.displayEngagementOverlay('announcement', thankYouData);
     }
 }

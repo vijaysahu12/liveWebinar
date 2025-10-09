@@ -27,7 +27,7 @@ public class WebinarController : ControllerBase
             var webinars = await _context.WebinarSchedules
                 .Include(w => w.Host)
                 .Include(w => w.Registrations)
-                .Where(w => w.ScheduledDateTime > DateTime.UtcNow && w.Status == WebinarStatus.Scheduled)
+                .Where(w => w.ScheduledDateTime > DateTime.Now && w.Status == WebinarStatus.Scheduled)
                 .OrderBy(w => w.ScheduledDateTime)
                 .Select(w => new WebinarScheduleDto
                 {
@@ -76,7 +76,7 @@ public class WebinarController : ControllerBase
             var upcomingWebinarsData = await _context.WebinarSchedules
                 .Include(w => w.Host)
                 .Include(w => w.Registrations)
-                .Where(w => w.ScheduledDateTime > DateTime.UtcNow && w.Status == WebinarStatus.Scheduled)
+                .Where(w => w.ScheduledDateTime > DateTime.Now && w.Status == WebinarStatus.Scheduled)
                 .OrderBy(w => w.ScheduledDateTime)
                 .Take(10)
                 .Select(w => new 
@@ -119,7 +119,7 @@ public class WebinarController : ControllerBase
             }).ToList();
 
             var activeSubscription = user.Subscriptions
-                .Where(s => s.IsActive && (s.EndDate == null || s.EndDate > DateTime.UtcNow))
+                .Where(s => s.IsActive && (s.EndDate == null || s.EndDate > DateTime.Now))
                 .OrderByDescending(s => s.CreatedAt)
                 .FirstOrDefault();
 
@@ -139,7 +139,7 @@ public class WebinarController : ControllerBase
                 },
                 UpcomingWebinars = upcomingWebinars,
                 RegisteredWebinars = user.Registrations
-                    .Where(r => r.IsActive && r.Webinar.ScheduledDateTime > DateTime.UtcNow)
+                    .Where(r => r.IsActive && r.Webinar.ScheduledDateTime > DateTime.Now)
                     .ToList() // Execute query first
                     .Select(r => new WebinarScheduleDto
                     {
@@ -263,7 +263,7 @@ public class WebinarController : ControllerBase
             {
                 var hasActiveSubscription = user.Subscriptions
                     .Any(s => s.IsActive && s.Type == SubscriptionType.Paid && 
-                             (s.EndDate == null || s.EndDate > DateTime.UtcNow));
+                             (s.EndDate == null || s.EndDate > DateTime.Now));
 
                 if (!hasActiveSubscription && request.SubscriptionType != SubscriptionType.Paid)
                     return BadRequest("Paid subscription required for this webinar");
@@ -349,7 +349,7 @@ public class WebinarController : ControllerBase
                 {
                     WebinarId = webinarId,
                     UserId = userId,
-                    AccessedAt = DateTime.UtcNow,
+                    AccessedAt = DateTime.Now,
                     IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
                     UserAgent = Request.Headers["User-Agent"].ToString()
                 };
@@ -385,7 +385,7 @@ public class WebinarController : ControllerBase
         {
             return user.Subscriptions
                 .Any(s => s.IsActive && s.Type == SubscriptionType.Paid && 
-                         (s.EndDate == null || s.EndDate > DateTime.UtcNow));
+                         (s.EndDate == null || s.EndDate > DateTime.Now));
         }
 
         return true;
@@ -393,7 +393,7 @@ public class WebinarController : ControllerBase
 
     private bool IsWebinarAccessible(WebinarSchedule webinar)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var endTime = webinar.ScheduledDateTime.AddHours(5); // 5-hour window
 
         return now >= webinar.ScheduledDateTime && now <= endTime;
@@ -401,7 +401,7 @@ public class WebinarController : ControllerBase
 
     private TimeSpan? GetRemainingAccessTime(WebinarSchedule webinar)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var endTime = webinar.ScheduledDateTime.AddHours(5);
 
         if (now > endTime)
@@ -420,7 +420,7 @@ public class WebinarController : ControllerBase
 
         if (!isAccessible)
         {
-            var now = DateTime.UtcNow;
+            var now = DateTime.Now;
             if (now < webinar.ScheduledDateTime)
                 return $"Webinar will be available from {webinar.ScheduledDateTime:MMM dd, yyyy HH:mm} UTC";
             else
