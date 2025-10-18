@@ -1,0 +1,74 @@
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <h1>🎥 Live Webinar</h1>
+      <p>Enter your credentials to continue</p>
+    </div>
+
+    <form (ngSubmit)="onSubmit()" class="login-form">
+      @if (errorMessage()) {
+        <div class="error-message">{{ errorMessage() }}</div>
+      }
+
+      @if (successMessage()) {
+        <div class="success-message">{{ successMessage() }}</div>
+      }
+
+      <div class="form-group">
+        <label for="mobile">Mobile Number</label>
+        <input 
+          type="tel" 
+          id="mobile"
+          [(ngModel)]="mobile"
+          name="mobile"
+          placeholder="Enter 10-digit mobile number"
+          maxlength="10"
+          pattern="[0-9]{10}"
+          required
+          class="form-input"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input 
+          type="text" 
+          id="name"
+          [(ngModel)]="name"
+          name="name"
+          placeholder="Enter your full name"
+          required
+          class="form-input"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email (Optional)</label>
+        <input 
+          type="email" 
+          id="email"
+          [(ngModel)]="email"
+          name="email"
+          placeholder="Enter your email"
+          class="form-input"
+        />
+      </div>
+
+      <button 
+        type="submit" 
+        class="login-btn"
+        [disabled]="isLoading() || !mobile || !name">
+        @if (isLoading()) {
+          <span class="loading-spinner"></span>
+          Logging in...
+        } @else {
+          🚀 Login
+        }
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <p>By continuing, you agree to our Terms of Service</p>
+    </div>
+  </div>
+</div>

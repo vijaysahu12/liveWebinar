@@ -164,7 +164,7 @@ interface AdminUser {
               
               <!-- Admin Stats Overview -->
               <section class="admin-stats-section">
-                <h2>📊 Dashboard Overview</h2>
+                <h2>📊 Dashboard Overview vj</h2>
                 <div class="stats-grid">
                   <div class="stat-card live">
                     <div class="stat-icon">🔴</div>
@@ -232,7 +232,7 @@ interface AdminUser {
                     <div class="section-header">
                       <h3>📅 Events Management</h3>
                       <button class="create-btn" (click)="showCreateEvent.set(true)">
-                        ➕ Create Event
+                        ➕ Create Event vjs
                       </button>
                     </div>
 

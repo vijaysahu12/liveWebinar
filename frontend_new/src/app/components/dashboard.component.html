@@ -1,0 +1,551 @@
+<div class="dashboard-container">
+  <!-- Header -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <h1>🎥 Live Webinar Dashboard vj</h1>
+      <div class="user-info">
+        <span class="welcome">Welcome, {{ dashboard()?.user?.name }}</span>
+        <span class="role-badge" [class]="getRoleClass()">
+          {{ getRoleText() }}
+        </span>
+        <button class="logout-btn" (click)="logout()">🚪 Logout</button>
+      </div>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <div class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>Loading dashboard...</p>
+    </div>
+  } @else if (error()) {
+    <div class="error-container">
+      <div class="error-message">{{ error() }}</div>
+      <button class="retry-btn" (click)="loadDashboard()">🔄 Retry</button>
+    </div>
+  } @else if (dashboard()) {
+    <div class="dashboard-content" [class.full-screen-guest]="isGuest()">
+      
+      <!-- Stats Cards - Only show for non-guests -->
+      @if (!isGuest()) {
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+              <h3>{{ dashboard()?.totalRegistrations || 0 }}</h3>
+              <p>Total Registrations</p>
+            </div>
+          </div>
+          
+          @if (isHostOrAdmin()) {
+            <div class="stat-card">
+              <div class="stat-icon">🎤</div>
+              <div class="stat-content">
+                <h3>{{ dashboard()?.totalWebinarsHosted || 0 }}</h3>
+                <p>Webinars Hosted</p>
+              </div>
+            </div>
+          }
+          
+          <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-content">
+              <h3>{{ dashboard()?.upcomingWebinars?.length || 0 }}</h3>
+              <p>Upcoming Events</p>
+            </div>
+          </div>
+
+          @if (dashboard()?.activeSubscription) {
+            <div class="stat-card premium">
+              <div class="stat-icon">👑</div>
+              <div class="stat-content">
+                <h3>Premium</h3>
+                <p>Active Subscription</p>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Guest View: Video + Chat -->
+      @if (isGuest()) {
+        <section class="guest-section">
+          <div class="video-chat-container">
+            <!-- Left Side: Live Streaming (70%) -->
+            <div class="video-section">
+              <!-- Event header -->
+              <div class="event-header">
+                <div style="flex:1">
+                  <div class="event-title">Algo Trading Setup for Crypto</div>
+                  <div class="event-meta" style="margin-top:6px">
+                    <div class="pill">Event: Oct 5, 2025 • 07:00 PM IST</div>
+                    <div class="pill">Duration: 90 mins</div>
+                    <div class="pill live-pill">LIVE</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Video player area -->
+              <div class="video-area">
+                <iframe 
+                  src="https://www.youtube.com/embed/2kT42dG4xpg?si=pp0ho09c9_h4hnGj"
+                  title="YouTube video player" 
+                  frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerpolicy="strict-origin-when-cross-origin" 
+                  allowfullscreen>
+                </iframe>
+              </div>
+            </div>
+
+            <!-- Right Side: Chat (30%) -->
+            <div class="chat-section">
+              <div class="chat-header">
+                <h3>Live Chat</h3>
+                <div class="chat-controls">
+                  <div class="chat-stats">{{ chatMessages().length }} messages</div>
+                  <div class="signalr-status" [class.connected]="signalrConnected()">
+                    {{ signalrConnected() ? '🟢 Connected' : '🔴 Disconnected' }}
+                  </div>
+                  <button class="test-btn" (click)="testSignalRConnection()">Test SignalR</button>
+                </div>
+              </div>
+
+              <div class="chat-messages">
+                @for (message of chatMessages(); track message.id) {
+                  <div class="chat-message" [class.own-message]="message.userId === getUserId()">
+                    <div class="message-header">
+                      <span class="username">{{ message.username }}</span>
+                      <span class="timestamp">{{ message.timestamp | date:'HH:mm' }}</span>
+                    </div>
+                    <div class="message-content">{{ message.message }}</div>
+                  </div>
+                }
+
+                @if (chatMessages().length === 0) {
+                  <div class="no-messages">
+                    <p>💬 No messages yet. Start the conversation!</p>
+                  </div>
+                }
+              </div>
+
+              <div class="chat-input">
+                <input 
+                  type="text" 
+                  placeholder="Type your message..." 
+                  [(ngModel)]="currentMessage"
+                  (keypress)="onChatKeyPress($event)"
+                  class="message-input" 
+                />
+                <button 
+                  (click)="sendChatMessage()" 
+                  [disabled]="!currentMessage.trim()"
+                  class="send-btn">
+                  Send
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- Host Controls -->
+      @if (isHostOrAdmin()) {
+        <section class="section">
+          <div class="section-header">
+            <h2>🎤 Host Controls</h2>
+            <div class="host-actions">
+              <button class="create-btn" (click)="showCreateWebinar.set(true)">
+                ➕ Create Webinar
+              </button>
+              <button class="poll-btn" (click)="showCreatePoll.set(true)">
+                📊 Create Poll
+              </button>
+            </div>
+          </div>
+
+          @if (dashboard()?.myWebinars && dashboard()!.myWebinars.length > 0) {
+            <div class="webinars-grid">
+              @for (webinar of dashboard()!.myWebinars; track webinar.id) {
+                <div class="webinar-card host-webinar">
+                  <div class="webinar-thumbnail">
+                    @if (webinar.thumbnailUrl) {
+                      <img [src]="webinar.thumbnailUrl" [alt]="webinar.title">
+                    } @else {
+                      <div class="default-thumbnail">🎥</div>
+                    }
+                    <div class="webinar-status" [class]="getStatusClass(webinar.status)">
+                      {{ getStatusText(webinar.status) }}
+                    </div>
+                  </div>
+                  <div class="webinar-content">
+                    <h3>{{ webinar.title }}</h3>
+                    <p class="webinar-description">{{ webinar.description }}</p>
+                    <div class="webinar-meta">
+                      <span class="webinar-date">
+                        📅 {{ formatDate(webinar.scheduledDateTime) }}
+                      </span>
+                      <span class="webinar-registrations">
+                        👥 {{ webinar.registeredCount }} registered
+                      </span>
+                    </div>
+                    <div class="webinar-actions">
+                      @if (webinar.isLive) {
+                        <button class="action-btn live-btn" (click)="joinWebinar(webinar.id)">
+                          🔴 Go Live
+                        </button>
+                      } @else {
+                        <button class="action-btn manage-btn" (click)="manageWebinar(webinar.id)">
+                          ⚙️ Manage
+                        </button>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="empty-state">
+              <p>No webinars created yet</p>
+              <button class="create-btn" (click)="showCreateWebinar.set(true)">
+                🎬 Create Your First Webinar
+              </button>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- Admin Controls -->
+      @if (isAdmin()) {
+        <section class="section">
+          <div class="section-header">
+            <h2>👑 Admin Controls</h2>
+            <div class="admin-buttons">
+              <button class="create-btn" (click)="showUsers()">
+                👥 Manage Users
+              </button>
+              <button class="create-btn" (click)="showCreateUser.set(true)">
+                ➕ Create User
+              </button>
+            </div>
+          </div>
+
+          <!-- User Management Modal -->
+          @if (showUserManagement()) {
+            <div class="modal-overlay" (click)="showUserManagement.set(false)">
+              <div class="modal-content user-management-modal" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                  <h3>👥 User Management</h3>
+                  <button class="close-btn" (click)="showUserManagement.set(false)">✕</button>
+                </div>
+                
+                <div class="modal-body">
+                  @if (usersLoading()) {
+                    <div class="loading-container">
+                      <div class="loading-spinner"></div>
+                      <p>Loading users...</p>
+                    </div>
+                  } @else if (usersError()) {
+                    <div class="error-message">{{ usersError() }}</div>
+                  } @else {
+                    <div class="users-table-container">
+                      <table class="users-table">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Mobile</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (user of users(); track user.id) {
+                            <tr>
+                              <td>{{ user.name }}</td>
+                              <td>{{ user.mobile }}</td>
+                              <td>{{ user.email }}</td>
+                              <td>
+                                <span class="role-badge" [class]="'role-' + user.userRoleType">
+                                  {{ user.userRoleType === 0 ? 'Guest' : user.userRoleType === 1 ? 'Admin' : 'Host' }}
+                                </span>
+                              </td>
+                              <td>
+                                <span class="status-badge" [class]="user.isActive ? 'active' : 'inactive'">
+                                  {{ user.isActive ? 'Active' : 'Inactive' }}
+                                </span>
+                              </td>
+                              <td>{{ user.createdAt | date:'short' }}</td>
+                              <td>
+                                <button class="action-btn edit-btn" (click)="editUser(user)">✏️</button>
+                                <button class="action-btn delete-btn" (click)="deleteUser(user.id)">🗑️</button>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                      
+                      <!-- Pagination -->
+                      <div class="pagination">
+                        <button class="page-btn" [disabled]="currentPage() === 1" (click)="previousPage()">
+                          ← Previous
+                        </button>
+                        <span class="page-info">
+                          Page {{ currentPage() }} of {{ Math.ceil(totalUsers() / pageSize) }}
+                          ({{ totalUsers() }} total users)
+                        </span>
+                        <button class="page-btn" [disabled]="(currentPage() * pageSize) >= totalUsers()" (click)="nextPage()">
+                          Next →
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Create User Modal -->
+          @if (showCreateUser()) {
+            <div class="modal-overlay" (click)="showCreateUser.set(false)">
+              <div class="modal-content create-user-modal" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                  <h3>➕ Create New User</h3>
+                  <button class="close-btn" (click)="showCreateUser.set(false)">✕</button>
+                </div>
+                
+                <div class="modal-body">
+                  <form class="user-form" (ngSubmit)="createUser()">
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="userName">Name *</label>
+                        <input type="text" id="userName" [(ngModel)]="newUser.name" required>
+                      </div>
+                      <div class="form-group">
+                        <label for="userMobile">Mobile *</label>
+                        <input type="tel" id="userMobile" [(ngModel)]="newUser.mobile" required>
+                      </div>
+                    </div>
+                    
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="userEmail">Email</label>
+                        <input type="email" id="userEmail" [(ngModel)]="newUser.email">
+                      </div>
+                      <div class="form-group">
+                        <label for="userRole">Role</label>
+                        <select id="userRole" [(ngModel)]="newUser.userRoleType">
+                          @for (role of getRoleOptions(); track role.value) {
+                            <option [value]="role.value">{{ role.label }}</option>
+                          }
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="userCity">City</label>
+                        <input type="text" id="userCity" [(ngModel)]="newUser.city">
+                      </div>
+                      <div class="form-group">
+                        <label for="userState">State</label>
+                        <input type="text" id="userState" [(ngModel)]="newUser.state">
+                      </div>
+                    </div>
+                    
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="userCountry">Country</label>
+                        <input type="text" id="userCountry" [(ngModel)]="newUser.country">
+                      </div>
+                      <div class="form-group checkbox-group">
+                        <label>
+                          <input type="checkbox" [(ngModel)]="newUser.isActive">
+                          Active User
+                        </label>
+                      </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                      <button type="button" class="cancel-btn" (click)="showCreateUser.set(false)">Cancel</button>
+                      <button type="submit" class="create-btn">Create User</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- Upcoming Webinars Section -->
+      @if (dashboard()?.upcomingWebinars && dashboard()!.upcomingWebinars.length > 0) {
+        <section class="section">
+          <div class="section-header">
+            <h2>📅 Upcoming Webinars</h2>
+          </div>
+          <div class="webinars-grid">
+            @for (webinar of dashboard()!.upcomingWebinars; track webinar.id) {
+              <div class="webinar-card">
+                <div class="webinar-thumbnail">
+                  @if (webinar.thumbnailUrl) {
+                    <img [src]="webinar.thumbnailUrl" [alt]="webinar.title">
+                  } @else {
+                    <div class="default-thumbnail">🎥</div>
+                  }
+                  <div class="webinar-status" [class]="getStatusClass(webinar.status)">
+                    {{ getStatusText(webinar.status) }}
+                  </div>
+                </div>
+                <div class="webinar-content">
+                  <h3>{{ webinar.title }}</h3>
+                  <p class="webinar-description">{{ webinar.description }}</p>
+                  <div class="webinar-meta">
+                    <span class="webinar-date">
+                      📅 {{ formatDate(webinar.scheduledDateTime) }}
+                    </span>
+                    <span class="webinar-host">
+                      🎤 {{ webinar.hostName }}
+                    </span>
+                  </div>
+                  <div class="webinar-actions">
+                    @if (webinar.isLive) {
+                      <button class="action-btn join-btn" (click)="joinWebinar(webinar.id)">
+                        🎯 Join Live
+                      </button>
+                    } @else if (webinar.canRegister) {
+                      <button class="action-btn register-btn" (click)="registerForWebinar(webinar.id)">
+                        📝 Register
+                      </button>
+                    } @else {
+                      <button class="action-btn disabled-btn" disabled>
+                        ✅ Registered
+                      </button>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  }
+
+  <!-- Create Webinar Modal -->
+  @if (showCreateWebinar()) {
+    <div class="modal-overlay" (click)="showCreateWebinar.set(false)">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>➕ Create New Webinar</h3>
+          <button class="modal-close" (click)="showCreateWebinar.set(false)">×</button>
+        </div>
+        <form (ngSubmit)="createWebinar()" class="create-form">
+          <div class="form-group">
+            <label>Title*</label>
+            <input type="text" [(ngModel)]="newWebinar.title" name="title" required placeholder="Enter webinar title" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Description*</label>
+            <textarea [(ngModel)]="newWebinar.description" name="description" required placeholder="Describe your webinar" class="form-textarea"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Scheduled Date & Time*</label>
+              <input type="datetime-local" [(ngModel)]="newWebinar.scheduledDateTime" name="scheduledDateTime" required class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Duration (minutes)*</label>
+              <input type="number" [(ngModel)]="newWebinar.durationMinutes" name="durationMinutes" min="15" max="480" required class="form-input">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Thumbnail URL</label>
+            <input type="url" [(ngModel)]="newWebinar.thumbnailUrl" name="thumbnailUrl" placeholder="https://example.com/image.jpg" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Stream URL</label>
+            <input type="url" [(ngModel)]="newWebinar.streamUrl" name="streamUrl" placeholder="https://youtube.com/..." class="form-input">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Subscription Required</label>
+              <select [(ngModel)]="newWebinar.requiredSubscription" name="requiredSubscription" class="form-select">
+                <option [value]="SubscriptionType.Free">Free for All</option>
+                <option [value]="SubscriptionType.Paid">Premium Only</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Price (₹)</label>
+              <input type="number" [(ngModel)]="newWebinar.price" name="price" min="0" class="form-input">
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="cancel-btn" (click)="showCreateWebinar.set(false)">Cancel</button>
+            <button type="submit" class="create-btn" [disabled]="!newWebinar.title">Create Webinar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- Create Poll Modal -->
+  @if (showCreatePoll()) {
+    <div class="modal-overlay" (click)="showCreatePoll.set(false)">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>📊 Create Poll</h3>
+          <button class="modal-close" (click)="showCreatePoll.set(false)">×</button>
+        </div>
+        <form (ngSubmit)="createPoll()" class="create-form">
+          <div class="form-group">
+            <label>Poll Question*</label>
+            <input type="text" [(ngModel)]="newPoll.question" name="question" required 
+                   placeholder="Enter your poll question..." class="form-input">
+          </div>
+          
+          <div class="form-group">
+            <label>Options</label>
+            @for (option of newPoll.options; track $index) {
+              <div class="option-input-group">
+                <input type="text" [(ngModel)]="newPoll.options[$index]" 
+                       [name]="'option' + $index" required 
+                       placeholder="Option {{ $index + 1 }}" class="form-input">
+                @if (newPoll.options.length > 2) {
+                  <button type="button" class="remove-option-btn" (click)="removeOption($index)">
+                    🗑️
+                  </button>
+                }
+              </div>
+            }
+            @if (newPoll.options.length < 5) {
+              <button type="button" class="add-option-btn" (click)="addOption()">
+                ➕ Add Option
+              </button>
+            }
+          </div>
+          
+          <div class="form-group">
+            <label>Duration (seconds)</label>
+            <select [(ngModel)]="newPoll.durationSeconds" name="duration" class="form-select">
+              <option [value]="0">No time limit (manual close)</option>
+              <option [value]="30">30 seconds</option>
+              <option [value]="60">1 minute</option>
+              <option [value]="120">2 minutes</option>
+              <option [value]="300">5 minutes</option>
+            </select>
+          </div>
+          
+          <div class="modal-actions">
+            <button type="button" class="cancel-btn" (click)="showCreatePoll.set(false)">Cancel</button>
+            <button type="submit" class="create-btn" [disabled]="!isPollFormValid()">
+              📊 Create Poll
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+</div>
